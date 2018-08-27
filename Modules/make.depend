@@ -166,6 +166,15 @@ latgen.o : kind.o
 linpack.o : kind.o
 lsda_functionals.o : constants.o
 lsda_functionals.o : kind.o
+mdi_engine.o : ../FFTXlib/fft_types.o
+mdi_engine.o : cell_base.o
+mdi_engine.o : io_global.o
+mdi_engine.o : ions_base.o
+mdi_engine.o : kind.o
+mdi_engine.o : mp_global.o
+mdi_engine.o : mp_pools.o
+mdi_engine.o : mp_world.o
+mdi_engine.o : qmmm.o
 mdiis.o : ../UtilXlib/mp.o
 mdiis.o : kind.o
 metagga.o : constants.o

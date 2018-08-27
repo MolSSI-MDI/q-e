@@ -644,6 +644,7 @@ forces.o : ../../Modules/fft_base.o
 forces.o : ../../Modules/io_global.o
 forces.o : ../../Modules/ions_base.o
 forces.o : ../../Modules/kind.o
+forces.o : ../../Modules/mdi_engine.o
 forces.o : ../../Modules/mm_dispersion.o
 forces.o : ../../Modules/plugin_flags.o
 forces.o : ../../Modules/qmmm.o
@@ -1774,6 +1775,7 @@ setlocal.o : ../../Modules/fft_base.o
 setlocal.o : ../../Modules/io_global.o
 setlocal.o : ../../Modules/ions_base.o
 setlocal.o : ../../Modules/kind.o
+setlocal.o : ../../Modules/mdi_engine.o
 setlocal.o : ../../Modules/mp_bands.o
 setlocal.o : ../../Modules/qmmm.o
 setlocal.o : ../../Modules/recvec.o

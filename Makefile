@@ -10,7 +10,7 @@ include make.inc
 
 # execute a target irrespective of the presence of a file or directory 
 # with the same name
-.PHONY: install
+.PHONY: install mdi
 
 default :
 	@echo 'to install Quantum ESPRESSO, type at the shell prompt:'
@@ -31,6 +31,7 @@ default :
 	@echo '  upf          utilities for pseudopotential conversion'
 	@echo '  xspectra     X-ray core-hole spectroscopy calculations'
 	@echo '  couple       Library interface for coupling to external codes'
+	@echo '  mdi          MolSSI Driver Interface (MDI) support'
 	@echo '  epw          Electron-Phonon Coupling with wannier functions'
 	@echo '  gui          Graphical User Interface'
 	@echo '  examples     fetch from web examples for all core packages'
@@ -135,6 +136,10 @@ couple : pw cp
 	if test -d COUPLE ; then \
 	( cd COUPLE ; $(MAKE) TLDEPS= all || exit 1 ) ; fi
 
+mdi : pw
+	if test -d MDI ; then \
+	( cd MDI ; $(MAKE) TLDEPS= all || exit 1 ) ; fi
+
 epw: phlibs
 	if test -d EPW ; then \
 	( cd EPW ; $(MAKE) all || exit 1; \
@@ -176,6 +181,7 @@ pw4gwwlib : phlibs
 	if test -d GWW ; then \
 	( cd GWW ; $(MAKE) pw4gwwa || exit 1 ) ; fi
 
+#mods : libiotk libfox libutil libla libfft libmdi
 mods : libiotk libfox libutil libla libfft
 	( cd Modules ; $(MAKE) TLDEPS= all || exit 1 )
 
@@ -199,6 +205,12 @@ lrmods : mods pwlibs
 
 dftd3 : mods
 	( cd dft-d3 ; $(MAKE) TLDEPS= all || exit 1 )
+
+##### TAB edit
+#libmdi : 
+#	( cd mdi ; $(MAKE) TLDEPS= all || exit 1 )
+#	( cd mdi ; mkdir build ; cd build ; cmake ../ ; make || exit 1 )
+##### end TAB edit
 
 bindir :
 	test -d bin || mkdir bin
@@ -302,7 +314,7 @@ clean :
 	touch make.inc 
 	for dir in \
 		CPV LAXlib FFTXlib UtilXlib Modules PP PW EPW KS_Solvers \
-		NEB ACFDT COUPLE GWW XSpectra PWCOND dft-d3 \
+		NEB ACFDT COUPLE mdi GWW XSpectra PWCOND dft-d3 \
 		atomic clib LR_Modules pwtools upftools \
 		dev-tools extlibs Environ TDDFPT PHonon GWW \
 	; do \

@@ -57,6 +57,7 @@ SUBROUTINE forces()
   USE tsvdw_module,  ONLY : FtsvdW
   USE esm,           ONLY : do_comp_esm, esm_bc, esm_force_ew
   USE qmmm,          ONLY : qmmm_mode
+  USE mdi_engine,    ONLY : is_mdi, set_mdi_forces
   !
   IMPLICIT NONE
   !
@@ -239,8 +240,9 @@ SUBROUTINE forces()
         !
      ELSE IF ( qmmm_mode < 0 ) THEN
         !
-        ! ... impose total force = 0 except in a QM-MM calculation
+        ! ... impose total force = 0 except in a QM-MM or MDI calculation
         !
+        IF ( is_mdi ) CALL set_mdi_forces(force, ipol)
         DO na = 1, nat
            force(ipol,na) = force(ipol,na) - sumfor / DBLE( nat ) 
         END DO
