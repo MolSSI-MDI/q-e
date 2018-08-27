@@ -13,6 +13,7 @@ MODULE qmmm
   USE mp_global,        ONLY : me_pool, intra_pool_comm ! added
   USE mp,               ONLY : mp_bcast, mp_barrier, mp_abort, mp_sum ! added
   USE kinds,            ONLY : DP
+  USE f90sockets,       ONLY : readbuffer, writebuffer
   USE parallel_include
   IMPLICIT NONE
   !
@@ -76,6 +77,10 @@ MODULE qmmm
 
   PUBLIC :: qmmm_config, qmmm_initialization, qmmm_shutdown, qmmm_mode
   PUBLIC :: qmmm_update_positions, qmmm_update_forces, qmmm_add_esf, qmmm_force_esf
+  PUBLIC :: set_mm_natoms, set_qm_natoms, set_ntypes, set_cell_mm, read_mm_charge
+  PUBLIC :: read_mm_mask, read_mm_coord, read_types, read_mass, write_ec_force
+  PUBLIC :: write_mm_force, qmmm_center_molecule, qmmm_minimum_image
+  PUBLIC :: read_aradii
 
 CONTAINS
 
@@ -137,15 +142,17 @@ CONTAINS
     END IF
 
     ! only ionode communicates with MM master
-    IF (ionode) THEN
-       IF (qmmm_comm /= MPI_COMM_NULL) THEN
-#if defined(__MPI)
-          CALL mpi_send(nat_qm,1,MPI_INTEGER,0,QMMM_TAG_SIZE,qmmm_comm,ierr)
-#else
-          CALL errore( 'qmmm_initialization', 'Use of QM/MM requires compilation with MPI', 1 )
-#endif
-       END IF
-    END IF
+    !<<<
+!    IF (ionode) THEN
+!       IF (qmmm_comm /= MPI_COMM_NULL) THEN
+!#if defined(__MPI)
+!          CALL mpi_send(nat_qm,1,MPI_INTEGER,0,QMMM_TAG_SIZE,qmmm_comm,ierr)
+!#else
+!          CALL errore( 'qmmm_initialization', 'Use of QM/MM requires compilation with MPI', 1 )
+!#endif
+!       END IF
+!    END IF
+    !>>>
     CALL mp_bcast(nstep, ionode_id, world_comm)
     ! temporary storage
     ALLOCATE( tmp_buf(3,nat_qm) )
@@ -257,7 +264,7 @@ END SUBROUTINE qmmm_minimum_image
          INTEGER(kind=c_int), INTENT(IN) :: nat_mm, ntypes, flag
        END SUBROUTINE ec_fill_radii
     END INTERFACE
-    
+
     IF (qmmm_mode < 0) RETURN
 
 #if defined(__MPI)
@@ -398,6 +405,124 @@ END SUBROUTINE qmmm_minimum_image
 #endif
 
   END SUBROUTINE qmmm_update_positions
+  !<<<
+
+
+  !---------------------------------------------------------------------!
+  ! update positions of the QM system from MM-master
+
+  SUBROUTINE set_cell_mm(cell_mm_in)
+    IMPLICIT NONE
+    REAL(DP), INTENT(IN) :: cell_mm_in(9)
+    INTEGER :: i
+
+    IF (qmmm_mode < 0) RETURN
+
+    DO i = 1, 9
+       cell_mm(i) = cell_mm_in(i)
+    END DO
+
+#if defined(__MPI)
+    CALL mp_bcast(cell_mm, ionode_id, world_comm )
+#endif
+
+    IF (ionode) THEN
+       WRITE(stdout,*)
+       WRITE(stdout,'(5X,A)') 'QMMM: cell_mm'
+       WRITE(stdout,'(11X,A,3F6.3)') 'X (lo,hi,len): ',cell_mm(1),cell_mm(4),cell_mm(4)-cell_mm(1)
+       WRITE(stdout,'(11X,A,3F6.3)') 'Y (lo,hi,len): ',cell_mm(2),cell_mm(5),cell_mm(5)-cell_mm(2)
+       WRITE(stdout,'(11X,A,3F6.3)') 'Z (lo,hi,len): ',cell_mm(3),cell_mm(6),cell_mm(6)-cell_mm(3)
+       WRITE(stdout,'(11X,A,3F6.3)') '  (xy,xz,yz) : ',cell_mm(7),cell_mm(8),cell_mm(9)
+    END IF
+
+  END SUBROUTINE set_cell_mm
+
+
+  !---------------------------------------------------------------------!
+  ! allocate arrays that depend on the number of mm atoms
+  !
+  SUBROUTINE set_mm_natoms(natoms_in)
+    INTEGER, INTENT(IN) :: natoms_in
+
+    IF (qmmm_mode < 0) RETURN
+
+    nat_mm = natoms_in
+    nat_all = natoms_in
+
+#if defined(__MPI)
+    CALL mp_bcast( nat_mm, ionode_id, world_comm )
+#endif
+
+    IF( .NOT. ALLOCATED( rc_mm ) ) THEN
+        ALLOCATE( rc_mm( nat_mm ) )
+    END IF
+    IF( .NOT. ALLOCATED( tau_mm ) ) THEN
+        ALLOCATE( tau_mm( 3, nat_mm ) ) 
+    END IF
+    IF( .NOT. ALLOCATED( tau_mask ) ) THEN
+        ALLOCATE( tau_mask( nat_mm ) ) 
+    END IF
+    IF( .NOT. ALLOCATED( charge_mm ) ) THEN
+        ALLOCATE( charge_mm( nat_mm ) ) 
+    END IF
+    IF( .NOT. ALLOCATED( aradii ) ) THEN
+        ALLOCATE( aradii( nat_mm ) ) 
+    END IF
+    IF( .NOT. ALLOCATED( force_mm ) ) THEN
+        ALLOCATE( force_mm(3,nat_mm) )
+    END IF
+    IF( .NOT. ALLOCATED( types ) ) THEN
+        ALLOCATE( types( nat_mm ) )
+    END IF
+
+  END SUBROUTINE set_mm_natoms
+
+
+  !---------------------------------------------------------------------!
+  ! allocate arrays that depend on the number of qm atoms
+  !
+  SUBROUTINE set_qm_natoms(natoms_in)
+    INTEGER, INTENT(IN) :: natoms_in
+
+    IF (qmmm_mode < 0) RETURN
+
+    nat_qm = natoms_in
+
+#if defined(__MPI)
+    CALL mp_bcast( nat_qm, ionode_id, world_comm )
+#endif
+
+    IF( .NOT. ALLOCATED( charge ) ) THEN
+        ALLOCATE( charge(nat_qm) )
+    END IF
+    IF( .NOT. ALLOCATED( force_qm ) ) THEN
+        ALLOCATE( force_qm(3,nat_qm) )
+    END IF
+
+  END SUBROUTINE set_qm_natoms
+
+
+  !---------------------------------------------------------------------!
+  ! allocate arrays that depend on the number of atom types
+  !
+  SUBROUTINE set_ntypes(ntypes_in)
+    INTEGER, INTENT(IN) :: ntypes_in
+
+    IF (qmmm_mode < 0) RETURN
+
+    ntypes = ntypes_in
+
+#if defined(__MPI)
+    CALL mp_bcast( ntypes, ionode_id, world_comm )
+#endif
+
+    IF( .NOT. ALLOCATED( mass ) ) THEN
+        ! add 1 to take into account the atom type "0"
+        ALLOCATE( mass( ntypes + 1 ) ) 
+    END IF
+
+  END SUBROUTINE set_ntypes
+  !>>>
 
   !---------------------------------------------------------------------!
   ! communicate forces of the QM system to MM-master
@@ -722,6 +847,207 @@ END SUBROUTINE qmmm_minimum_image
     RETURN
     
   END SUBROUTINE qmmm_force_esf
+
+  !<<<
+  !---------------------------------------------------------------------!
+  !
+  !
+  SUBROUTINE read_mm_charge(socketfd)
+    INTEGER, INTENT(IN) :: socketfd
+    INTEGER :: i
+    !
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM charges"
+    !
+    ! ... Read the dimensions of the MM cell
+    !
+    IF ( ionode ) CALL readbuffer(socketfd, charge_mm, nat_mm)
+    !
+#if defined(__MPI)
+    CALL mp_bcast(charge_mm, ionode_id, world_comm)
+#endif
+    !
+    ! clear charge for QM atoms
+    DO i = 1, nat_mm
+       IF(tau_mask(i) .eq. -1)CYCLE
+       charge_mm(i) = 0.0d0
+    ENDDO
+    !
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: nat_all",nat_all
+    !
+    IF (ionode) THEN
+       WRITE(stdout,*)
+       DO i = 1, nat_all
+           WRITE(stdout,'(5X,A,3F10.6,2X,A,F10.6,2X,A,I2)') &
+                'QMMM: tau_mm ',tau_mm(:,i),' charge_mm ',charge_mm(i),' QA ',tau_mask(i)
+       END DO
+    END IF
+    !
+  END SUBROUTINE read_mm_charge
+  !
+  !
+  SUBROUTINE read_mm_mask(socketfd)
+    INTEGER, INTENT(IN) :: socketfd
+    !
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM mask"
+    !
+    ! ... Read the dimensions of the MM cell
+    !
+    IF ( ionode ) CALL readbuffer(socketfd, tau_mask, nat_mm)
+    !
+#if defined(__MPI)
+    CALL mp_bcast(tau_mask, ionode_id, world_comm)
+#endif
+    !
+  END SUBROUTINE read_mm_mask
+  !
+  !
+  SUBROUTINE read_mm_coord(socketfd)
+    USE cell_base, ONLY : alat
+    INTEGER, INTENT(IN) :: socketfd
+    REAL(DP) :: buf(3*nat_mm)
+    !
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM coordinates"
+    !
+    ! ... Read the dimensions of the MM cell
+    !
+    IF ( ionode ) CALL readbuffer(socketfd, buf, 3*nat_mm)
+    tau_mm = RESHAPE(buf, (/3,nat_mm/))
+    !
+    tau_mm = tau_mm / alat ! internally positions are in alat
+    !
+#if defined(__MPI)
+    CALL mp_bcast(tau_mm, ionode_id, world_comm)
+#endif
+    !
+  END SUBROUTINE read_mm_coord
+  !
+  !
+  SUBROUTINE read_types(socketfd)
+    INTEGER, INTENT(IN) :: socketfd
+    !
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM types"
+    !
+    ! ... Read the dimensions of the MM cell
+    !
+    IF ( ionode ) CALL readbuffer(socketfd, types, nat_mm)
+    !
+#if defined(__MPI)
+    CALL mp_bcast(types, ionode_id, world_comm)
+#endif
+    !
+  END SUBROUTINE read_types
+  !
+  !
+  SUBROUTINE read_mass(socketfd)
+    USE cell_base, ONLY : alat
+    USE constants, ONLY : bohr_radius_angs
+    INTEGER, INTENT(IN) :: socketfd
+    !
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM mass"
+    !
+    ! ... Read the dimensions of the MM cell
+    !
+    IF ( ionode ) CALL readbuffer(socketfd, mass, ntypes+1)
+    !
+#if defined(__MPI)
+    CALL mp_bcast(mass, ionode_id, world_comm)
+#endif
+    !
+    ! do pre-forces work
+    IF (ionode) THEN
+
+        !CALL qmmm_center_molecule
+        !CALL qmmm_minimum_image
+
+        ! set atomic radii
+        CALL ec_fill_radii( aradii, nat_mm, mass, types, ntypes, 1 )
+
+    END IF
+    CALL mp_bcast(aradii, ionode_id, world_comm)    
+    rc_mm = aradii
+    ! Convert radii to Bohr units
+    rc_mm = rc_mm / (alat * bohr_radius_angs)
+    !
+  END SUBROUTINE read_mass
+  !
+  !
+  SUBROUTINE read_aradii(socketfd)
+    USE cell_base, ONLY : alat
+    USE constants, ONLY : bohr_radius_angs
+    INTEGER, INTENT(IN) :: socketfd
+    !
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM aradii"
+    !
+    ! ... Read the dimensions of the MM cell
+    !
+    IF ( ionode ) CALL readbuffer(socketfd, aradii, nat_mm)
+    !
+#if defined(__MPI)
+    CALL mp_bcast(aradii, ionode_id, world_comm)
+#endif
+    !
+    rc_mm = aradii
+    ! Convert radii to Bohr units
+    rc_mm = rc_mm / (alat * bohr_radius_angs)
+    !
+  END SUBROUTINE read_aradii
+
+  !---------------------------------------------------------------------!
+  ! communicate forces of the QM system to MM-master
+  !
+  SUBROUTINE write_ec_force( sockfd )
+    !
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: sockfd
+    REAL(DP) :: buf(3*nat_qm)
+    
+
+    IF (qmmm_mode .ne. 2) RETURN
+
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Writing EC forces on QM atoms"
+
+    IF (ionode) THEN
+        !
+        buf=RESHAPE(force_qm, (/ 3 * nat_qm /) ) * 0.5   ! force in a.u.
+        !
+        CALL writebuffer(sockfd, buf, 3*nat_qm)
+        !
+    END IF
+
+  END SUBROUTINE write_ec_force
+
+  !---------------------------------------------------------------------!
+  ! communicate forces of the QM system to MM-master
+  !
+  SUBROUTINE write_mm_force( sockfd, rho, nspin, dfftp )
+    !
+    USE fft_types,          ONLY : fft_type_descriptor
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: sockfd
+    REAL(DP) :: rho(:,:)
+    INTEGER  :: nspin
+    TYPE(fft_type_descriptor) :: dfftp
+    REAL(DP) :: buf(3*nat_mm)
+
+    IF (qmmm_mode .ne. 2) RETURN
+
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Writing EC forces on MM atoms"
+
+    IF (ionode .and. (qmmm_verb > 0)) &
+         WRITE(stdout,'(/,5X,A)') 'QMMM: compute EC forces'
+    CALL qmmm_force_esf( rho, nspin, dfftp )
+
+    IF (ionode) THEN
+        IF (qmmm_verb > 0) WRITE(stdout,'(5X,A)') 'QMMM: update forces'
+        !
+        !!!! Note, not used if ec_alg is false. Optimize excluding this send as well
+        buf=RESHAPE(force_mm, (/ 3 * nat_mm /) ) * 0.5   ! force in a.u.
+        CALL writebuffer(sockfd, buf, 3*nat_mm)
+    END IF
+
+  END SUBROUTINE write_mm_force
+
+  !>>>
 
   !---------------------------------------------------------------------!
 

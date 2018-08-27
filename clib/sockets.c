@@ -67,6 +67,7 @@ Args:
    if (*inet>0)
    {  // creates an internet socket
       
+     /*
       // fetches information on the host      
       struct addrinfo hints, *res;  
       char service[256];
@@ -76,7 +77,11 @@ Args:
       hints.ai_family = AF_INET;
       hints.ai_flags = AI_PASSIVE;
 
+      //<<<
+      //sprintf(service,"%d",*port); // convert the port number to a string
       sprintf(service,"%d",*port); // convert the port number to a string
+      printf("@@@ port: %s",service);
+      //>>>
       ai_err = getaddrinfo(host, service, &hints, &res); 
       if (ai_err!=0) { perror("Error fetching host data. Wrong host name?"); exit(-1); }
 
@@ -85,9 +90,99 @@ Args:
       if (sockfd < 0) { perror("Error opening socket"); exit(-1); }
     
       // makes connection
+      //<<<
+      //printf("@@@ sockfd: %i",sockfd);
+      //printf("@@@ sin_family: %i",res->ai_addr.sin_family);
+      //printf("@@@ sin_port: %i",res->ai_addr.sin_port);
+      //res->ai_addr
+      //>>>
       if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) 
       { perror("Error opening INET socket: wrong port or server unreachable"); exit(-1); }
       freeaddrinfo(res);
+     */
+     
+  int ret;
+  struct sockaddr_in driver_address;
+  int i;
+  //char *serv_host = "localhost";
+  //string readline;
+  int port;
+  struct hostent *host_ptr;
+  //ifstream hostfile("../hostname");
+  FILE *hostfile;
+  char buff[255];
+
+  port = 8021;
+
+  printf("In C code TESTING\n");
+
+
+
+  hostfile = fopen("../hostname","r");
+  fgets(buff, 255, (FILE*)hostfile);
+
+  printf("Driver hostname: %s\n",buff);
+
+  int hlen = 10;
+  /*
+  for (i=0; i < hlen; i++) {
+    serv_host[i] = buff[i];
+  }
+  */
+  hlen = strlen(buff);
+  printf("hostname length: %i\n",hlen);
+
+  char serv_host[hlen];
+  for (i=0; i < hlen; i++) {
+    serv_host[i] = buff[i];
+  }
+  serv_host[hlen-1] = '\0';
+
+  /*
+  if (hostfile.is_open()) {
+    //read the first line
+    getline(hostfile,readline);
+  }
+  printf("%%% HOSTNAME: %s\n",readline);
+  int hlen = readline.length();
+  char serv_host[hlen+1];
+  strcpy(serv_host, readline.c_str());
+  */
+  printf("Driver hostname: %s\n",serv_host);
+  printf("Driver hostname: %s\n",serv_host);
+
+
+
+
+
+  //get the address of the host
+  host_ptr = gethostbyname(serv_host);
+  if (host_ptr == NULL) {
+    error("Error in gethostbyname");
+  }
+  if (host_ptr->h_addrtype != AF_INET) {
+    error("Unkown address type");
+  }
+
+  bzero((char *) &driver_address, sizeof(driver_address));
+  driver_address.sin_family = AF_INET;
+  driver_address.sin_addr.s_addr = 
+    ((struct in_addr *)host_ptr->h_addr_list[0])->s_addr;
+  driver_address.sin_port = htons(port);
+
+  //create the socket
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (sockfd < 0) {
+    error("Could not create socket");
+  }
+  printf("Here is the socket: %i\n",sockfd);
+
+  //connect to the driver
+  ret = connect(sockfd, (const struct sockaddr *) &driver_address, sizeof(struct sockaddr_un));
+  if (ret < 0) {
+    error("Could not connect to the driver");
+  }
+     
    }
    else
    {  
@@ -152,6 +247,7 @@ Args:
 
    if (n == 0) { perror("Error reading from socket: server has quit or connection broke"); exit(-1); }
 }
+
 #else
 
 void open_socket(int *psockfd, int* inet, int* port, const char* host){;}
@@ -159,5 +255,3 @@ void readbuffer(int *psockfd, char *data, int* plen){;}
 void writebuffer(int *psockfd, const char *data, int* plen){;}
 
 #endif
-
-

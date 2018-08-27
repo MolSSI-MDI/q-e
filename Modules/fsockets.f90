@@ -39,14 +39,14 @@
   INTERFACE writebuffer
       MODULE PROCEDURE writebuffer_s, &
                        writebuffer_d, writebuffer_dv, &
-                       writebuffer_i
+                       writebuffer_i, writebuffer_iv
                        
   END INTERFACE 
 
   INTERFACE readbuffer
       MODULE PROCEDURE readbuffer_s, &
                        readbuffer_dv, readbuffer_d, &
-                       readbuffer_i
+                       readbuffer_iv, readbuffer_i
                        
   END INTERFACE 
 
@@ -154,6 +154,14 @@
       CALL writebuffer_csocket(psockfd, c_loc(fdata(1)), 8*plen)
   END SUBROUTINE
 
+  SUBROUTINE writebuffer_iv(psockfd, fdata, plen)
+      USE ISO_C_BINDING  
+    INTEGER, INTENT(IN)                      :: psockfd, plen
+    INTEGER(KIND=C_INT), TARGET        :: fdata(plen)
+
+      CALL writebuffer_csocket(psockfd, c_loc(fdata(1)), 4*plen)
+  END SUBROUTINE
+
   SUBROUTINE readbuffer_d (psockfd, fdata)
       USE ISO_C_BINDING
     INTEGER, INTENT(IN)                      :: psockfd
@@ -163,6 +171,14 @@
 
       CALL readbuffer_csocket(psockfd, c_loc(cdata), 8)
       fdata=cdata
+  END SUBROUTINE
+
+  SUBROUTINE readbuffer_iv (psockfd, fdata, plen)
+      USE ISO_C_BINDING
+    INTEGER, INTENT(IN)                      :: psockfd, plen
+    INTEGER(KIND=C_INT), INTENT(OUT), TARGET :: fdata(plen)
+
+      CALL readbuffer_csocket(psockfd, c_loc(fdata(1)), 4*plen)
   END SUBROUTINE
 
   SUBROUTINE readbuffer_i (psockfd, fdata)
