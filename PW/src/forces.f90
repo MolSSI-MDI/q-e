@@ -56,6 +56,7 @@ SUBROUTINE forces()
   USE rism_module,       ONLY : lrism, force_rism
   USE extffield,         ONLY : apply_extffield_PW
   USE input_parameters,  ONLY : nextffield
+  USE mdi_engine,        ONLY : is_mdi, set_mdi_forces
   !
 #if defined(__CUDA)
   USE device_fbuff_m,          ONLY : dev_buf
@@ -298,8 +299,9 @@ SUBROUTINE forces()
         !
      ELSEIF ( qmmm_mode < 0 ) THEN
         !
-        ! ... impose total force = 0 except in a QM-MM calculation
+        ! ... impose total force = 0 except in a QM-MM or MDI calculation
         !
+        IF ( is_mdi ) CALL set_mdi_forces(force, ipol)
         DO na = 1, nat
            force(ipol,na) = force(ipol,na) - sumfor / DBLE( nat ) 
         ENDDO

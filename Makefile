@@ -10,7 +10,7 @@ include make.inc
 
 # execute a target irrespective of the presence of a file or directory 
 # with the same name
-.PHONY: install
+.PHONY: install mdi
 
 default :
 	@echo 'to install Quantum ESPRESSO, type at the shell prompt:'
@@ -34,6 +34,7 @@ default :
 	@echo '  couple       Library interface for coupling to external codes'
 	@echo '  epw          Electron-Phonon Coupling with Wannier functions'
 	@echo '  kcw          KCW code: implementation of Koopmans functionals in primitive cell'
+	@echo '  mdi          MolSSI Driver Interface (MDI) support'
 	@echo '  gui          Graphical User Interface'
 	@echo '  all          same as "make pwall cp ld1 tddfpt xspectra hp"'
 	@echo ' '
@@ -124,6 +125,10 @@ xspectra : pwlibs
 couple : pw cp
 	if test -d COUPLE ; then \
 	( cd COUPLE ; $(MAKE) TLDEPS= all || exit 1 ) ; fi
+
+mdi : pw
+	if test -d MDI ; then \
+	( cd MDI ; $(MAKE) TLDEPS= all || exit 1 ) ; fi
 
 epw: phlibs
 	if test -d EPW ; then \
@@ -217,6 +222,12 @@ lrmods : mods pwlibs
 dftd3 : mods
 	( cd dft-d3 ; $(MAKE) TLDEPS= all || exit 1 )
 
+##### TAB edit
+#libmdi : 
+#	( cd mdi ; $(MAKE) TLDEPS= all || exit 1 )
+#	( cd mdi ; mkdir build ; cd build ; cmake ../ ; make || exit 1 )
+##### end TAB edit
+
 bindir :
 	test -d bin || mkdir bin
 
@@ -290,7 +301,7 @@ clean :
 	touch make.inc 
 	for dir in \
 		CPV LAXlib FFTXlib XClib UtilXlib upflib Modules PP PW EPW KS_Solvers \
-		NEB ACFDT COUPLE GWW XSpectra PWCOND dft-d3 \
+		NEB ACFDT COUPLE mdi GWW XSpectra PWCOND dft-d3 \
 		atomic LR_Modules upflib \
 		dev-tools extlibs Environ TDDFPT PHonon HP GWW Doc GUI \
 		QEHeat KCW \

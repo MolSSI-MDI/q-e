@@ -45,6 +45,7 @@ ions_base.o \
 kind.o \
 lmdif.o \
 mdiis.o \
+mdi_engine.o \
 mm_dispersion.o \
 mp_bands.o \
 mp_exx.o \

@@ -34,6 +34,7 @@ SUBROUTINE setlocal
   USE martyna_tuckerman, ONLY : wg_corr_loc, do_comp_mt
   USE esm,               ONLY : esm_local, esm_bc, do_comp_esm
   USE qmmm,              ONLY : qmmm_add_esf
+  USE mdi_engine,        ONLY : mdi_add_potential
   USE Coul_cut_2D,       ONLY : do_cutoff_2D, cutoff_local 
   USE rism_module,       ONLY : lrism, rism_setlocal
   !
@@ -109,6 +110,10 @@ SUBROUTINE setlocal
   !  in a QM/MM calculation to the local potential
   !
   CALL qmmm_add_esf( vltot, dfftp )
+  !
+  ! ... Add the potential contributed through MDI
+  !
+  CALL mdi_add_potential(vltot,dfftp)
   !
   ! ... set the local potential to rism_module
   !
