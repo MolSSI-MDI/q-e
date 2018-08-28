@@ -942,6 +942,16 @@ END SUBROUTINE qmmm_minimum_image
     USE cell_base, ONLY : alat
     USE constants, ONLY : bohr_radius_angs
     INTEGER, INTENT(IN) :: socketfd
+    INTERFACE
+       SUBROUTINE ec_fill_radii ( aradii, nat_mm, mass, types, ntypes, flag ) &
+            BIND(C,name="ec_fill_radii")
+         USE ISO_C_BINDING
+         REAL(kind=c_double), INTENT(OUT) :: aradii(*)
+         REAL(kind=c_double), INTENT(IN) :: mass(*)
+         INTEGER(kind=c_int), INTENT(IN) :: types(*)
+         INTEGER(kind=c_int), INTENT(IN) :: nat_mm, ntypes, flag
+       END SUBROUTINE ec_fill_radii
+    END INTERFACE
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM mass"
     !
