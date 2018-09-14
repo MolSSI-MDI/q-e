@@ -106,13 +106,13 @@ Args:
   int i;
   //char *serv_host = "localhost";
   //string readline;
-  int port;
+  //int port;
   struct hostent *host_ptr;
   //ifstream hostfile("../hostname");
   FILE *hostfile;
   char buff[255];
 
-  port = 8021;
+  //port = 8021;
 
   printf("In C code TESTING\n");
 
@@ -168,7 +168,7 @@ Args:
   driver_address.sin_family = AF_INET;
   driver_address.sin_addr.s_addr = 
     ((struct in_addr *)host_ptr->h_addr_list[0])->s_addr;
-  driver_address.sin_port = htons(port);
+  driver_address.sin_port = htons(*port);
 
   //create the socket
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
