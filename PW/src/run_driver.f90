@@ -35,6 +35,9 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   USE scf,              ONLY : rho
   USE lsda_mod,         ONLY : nspin
   USE fft_base,         ONLY : dfftp
+  !<<<
+  USE command_line_options, ONLY : command_line
+  !>>>
   !
   IMPLICIT NONE
   INTEGER, INTENT(OUT) :: exit_status
@@ -53,6 +56,9 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   REAL *8 :: cellh(3,3), cellih(3,3), vir(3,3), pot, mtxbuffer(9)
   REAL*8, ALLOCATABLE :: combuf(:)
   REAL*8 :: dist_ang(6), dist_ang_reset(6)
+  !<<<
+  CHARACTER(len=256) :: mdi_name
+  !>>>
   !----------------------------------------------------------------------------
   !
   lscf      = .true.
@@ -100,6 +106,9 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   ! ... Initializations
   CALL init_run()
   !<<<
+  !
+  mdi_name = get_mdi_name( command_line )
+  WRITE(6,*)'MDI name: ',mdi_name
   WRITE(6,*)'Calling create socket'
   !>>>
   !
@@ -712,6 +721,51 @@ CONTAINS
     CALL update_file()
     !
   END SUBROUTINE
+!<<<
+  !
+  FUNCTION get_mdi_name ( command_line ) RESULT ( name )
+    ! 
+    ! checks for the presence of a command-line option of the form
+    ! -mdi_name "name" or --mdi_name "name";
+    ! returns "name", used to run pw.x in driver mode.
+    ! On input, "command_line" must contain the unprocessed part of the command
+    ! line, on all processors, as returned after a call to "get_cammand_line"
+    !
+    USE command_line_options, ONLY : my_iargc, my_getarg
+    IMPLICIT NONE
+    CHARACTER(LEN=*), INTENT(IN) :: command_line
+    CHARACTER(LEN=256) :: name
+    !
+    INTEGER  :: nargs, narg
+    CHARACTER (len=320) :: arg
+    !
+    name = ' '
+    IF ( command_line == ' ' ) RETURN
+    !
+    nargs = my_iargc ( command_line )
+    !
+    narg = 0
+10  CONTINUE
+    CALL my_getarg ( command_line, narg, arg )
+    IF ( TRIM (arg) == '-mdi_name' .OR. TRIM (arg) == '--mdi_name' ) THEN
+       IF ( name == ' ' ) THEN
+          narg = narg + 1
+          IF ( narg > nargs ) THEN
+             CALL infomsg('get_mdi_name','missing MDI name in command line')
+             RETURN
+          ELSE
+             CALL my_getarg ( command_line, narg, name )
+          END IF
+       ELSE
+          CALL infomsg('get_mdi_name','duplicated MDI name in command line')
+       END IF
+    END IF
+    narg = narg + 1
+    IF ( narg > nargs ) RETURN
+    GO TO 10
+    !
+  END FUNCTION get_mdi_name
+!>>>
 !
 END SUBROUTINE run_driver
 
