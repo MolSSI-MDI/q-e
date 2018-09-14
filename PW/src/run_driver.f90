@@ -57,6 +57,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   REAL*8, ALLOCATABLE :: combuf(:)
   REAL*8 :: dist_ang(6), dist_ang_reset(6)
   !<<<
+  LOGICAL :: is_mdi = .false.
   CHARACTER(len=256) :: mdi_name
   !>>>
   !----------------------------------------------------------------------------
@@ -108,7 +109,9 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   !<<<
   !
   mdi_name = get_mdi_name( command_line )
+  IF ( .not. trim(mdi_name) == ' ' ) is_mdi = .true.
   WRITE(6,*)'MDI name: ',mdi_name
+  WRITE(6,*)'is_mdi: ',is_mdi
   WRITE(6,*)'Calling create socket'
   !>>>
   !
@@ -243,10 +246,13 @@ CONTAINS
   !
   SUBROUTINE create_socket (srvaddress)
     USE f90sockets,       ONLY : open_socket 
+    !<<<
+    USE mdi,              ONLY : MDI_Open
+    !>>>
     IMPLICIT NONE
     CHARACTER(*), INTENT(IN)  :: srvaddress
     CHARACTER(256) :: address
-    INTEGER :: port, inet, field_sep_pos
+    INTEGER :: port, inet, field_sep_pos, ierr
     !
     ! ... Parses host name, port and socket type
     field_sep_pos = INDEX(srvaddress,':',back=.true.)
@@ -278,7 +284,13 @@ CONTAINS
     !<<<
     WRITE(6,*)'Calling open_socket'
     !>>>
-    CALL open_socket ( socket, inet, port, trim(address)//achar(0) )
+    !<<<
+    IF (is_mdi) THEN
+       CALL MDI_Open ( socket, inet, port, trim(address)//achar(0), ierr )
+    ELSE
+       CALL open_socket ( socket, inet, port, trim(address)//achar(0) )
+    END IF
+    !>>>
     !<<<
     WRITE(6,*)'Finished calling open_socket'
     !>>>
