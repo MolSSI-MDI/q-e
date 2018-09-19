@@ -286,7 +286,7 @@ CONTAINS
     !>>>
     !<<<
     IF (is_mdi) THEN
-       CALL MDI_Open ( socket, inet, port, trim(address)//achar(0), ierr )
+       CALL MDI_Open ( socket, inet, port, trim(address)//achar(0) )
     ELSE
        CALL open_socket ( socket, inet, port, trim(address)//achar(0) )
     END IF
