@@ -36,6 +36,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   USE lsda_mod,         ONLY : nspin
   USE fft_base,         ONLY : dfftp
   !<<<
+  USE mdi,              ONLY : MDI_Send_Command
   USE command_line_options, ONLY : command_line
   !>>>
   !
@@ -59,6 +60,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   !<<<
   LOGICAL :: is_mdi = .false.
   CHARACTER(len=256) :: mdi_name
+  INTEGER :: ierr
   !>>>
   !----------------------------------------------------------------------------
   !
@@ -164,6 +166,8 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         CALL set_replica_id()
         isinit=.true.
         !
+     CASE( "<NAME" )
+        CALL MDI_Send_Command(mdi_name, socket, ierr)
      CASE( ">NAT" )
         CALL set_nat()
         !
