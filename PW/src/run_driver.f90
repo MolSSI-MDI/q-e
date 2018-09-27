@@ -36,7 +36,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   USE lsda_mod,         ONLY : nspin
   USE fft_base,         ONLY : dfftp
   !<<<
-  USE mdi,              ONLY : MDI_Send_Command
+  USE mdi,              ONLY : MDI_Send, MDI_CHAR
   USE command_line_options, ONLY : command_line
   !>>>
   !
@@ -167,7 +167,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         isinit=.true.
         !
      CASE( "<NAME" )
-        CALL MDI_Send_Command(mdi_name, socket, ierr)
+        IF (ionode) CALL MDI_Send( mdi_name, 12, MDI_CHAR, socket, ierr )
      CASE( ">NAT" )
         CALL set_nat()
         !
