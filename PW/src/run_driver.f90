@@ -36,7 +36,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   USE lsda_mod,         ONLY : nspin
   USE fft_base,         ONLY : dfftp
   !<<<
-  USE mdi,              ONLY : MDI_Send, MDI_CHAR
+  USE mdi,              ONLY : MDI_Send, MDI_CHAR, MDI_NAME_LENGTH
   USE command_line_options, ONLY : command_line
   !>>>
   !
@@ -59,7 +59,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   REAL*8 :: dist_ang(6), dist_ang_reset(6)
   !<<<
   LOGICAL :: is_mdi = .false.
-  CHARACTER(len=256) :: mdi_name
+  CHARACTER(len=MDI_NAME_LENGTH) :: mdi_name
   INTEGER :: ierr
   !>>>
   !----------------------------------------------------------------------------
@@ -167,7 +167,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         isinit=.true.
         !
      CASE( "<NAME" )
-        IF (ionode) CALL MDI_Send( mdi_name, 12, MDI_CHAR, socket, ierr )
+        IF (ionode) CALL MDI_Send( mdi_name, MDI_NAME_LENGTH, MDI_CHAR, socket, ierr )
      CASE( ">NAT" )
         CALL set_nat()
         !
