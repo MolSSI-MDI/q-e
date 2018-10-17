@@ -17,7 +17,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   USE control_flags,    ONLY : gamma_only, conv_elec, istep, ethr, lscf, lmd
   USE cellmd,           ONLY : lmovecell
   USE force_mod,        ONLY : lforce, lstres
-  USE ions_base,        ONLY : tau
+  USE ions_base,        ONLY : tau, nat_input => nat
   USE cell_base,        ONLY : alat, at, omega, bg
   USE cellmd,           ONLY : omega_old, at_old, calc
   USE force_mod,        ONLY : force
@@ -115,6 +115,10 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   WRITE(6,*)'MDI name: ',mdi_name
   WRITE(6,*)'is_mdi: ',is_mdi
   WRITE(6,*)'Calling create socket'
+  IF (is_mdi) THEN
+     nat = nat_input
+     CALL allocate_nat_arrays()
+  END IF
   !>>>
   !
   IF (ionode) CALL create_socket(srvaddress)
@@ -484,18 +488,26 @@ CONTAINS
     !
     IF ( ionode ) CALL readbuffer(socket, nat)
     CALL mp_bcast(    nat, ionode_id, intra_image_comm )
+    nat_input = nat
+    !
+    !
+    CALL allocate_nat_arrays()
+    !
+  END SUBROUTINE set_nat
+  !
+  !
+  SUBROUTINE allocate_nat_arrays()
     !
     ! ... Allocate the dummy array for the atoms coordinates
     !
-    IF ( .NOT. ALLOCATED( combuf ) ) THEN
-       ALLOCATE( combuf( 3 * nat ) )
-    END IF
+    IF ( ALLOCATED( combuf ) ) DEALLOCATE( combuf )
+    ALLOCATE( combuf( 3 * nat ) )
     !
     IF ( ionode ) write(*,*) " @ DRIVER MODE: Read number of atoms: ",nat
     !
     CALL set_qm_natoms(nat)
     !
-  END SUBROUTINE set_nat
+  END SUBROUTINE allocate_nat_arrays
   !
   !
   SUBROUTINE read_nat_mm()
