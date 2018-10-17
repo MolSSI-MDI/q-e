@@ -158,10 +158,10 @@ Args:
   //get the address of the host
   host_ptr = gethostbyname(serv_host);
   if (host_ptr == NULL) {
-    error("Error in gethostbyname");
+    perror("Error in gethostbyname");
   }
   if (host_ptr->h_addrtype != AF_INET) {
-    error("Unkown address type");
+    perror("Unkown address type");
   }
 
   bzero((char *) &driver_address, sizeof(driver_address));
@@ -173,14 +173,14 @@ Args:
   //create the socket
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) {
-    error("Could not create socket");
+    perror("Could not create socket");
   }
   printf("Here is the socket: %i\n",sockfd);
 
   //connect to the driver
   ret = connect(sockfd, (const struct sockaddr *) &driver_address, sizeof(struct sockaddr_un));
   if (ret < 0) {
-    error("Could not connect to the driver");
+    perror("Could not connect to the driver");
   }
      
    }
