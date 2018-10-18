@@ -172,10 +172,10 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         !
      CASE( "<NAME" )
         IF (ionode) CALL MDI_Send( mdi_name, MDI_NAME_LENGTH, MDI_CHAR, socket, ierr )
-     CASE( ">NAT" )
+     CASE( ">NATOMS" )
         CALL set_nat()
         !
-     CASE( ">MM_NAT" )
+     CASE( ">MM_NATOMS" )
         CALL read_nat_mm()
         !
      CASE( ">NTYPES" )
@@ -185,7 +185,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         CALL read_cell()
         CALL update_cell()
         !
-     CASE( ">COORD" )
+     CASE( ">COORDS" )
         CALL read_coordinates()
         !
      CASE( ">QMMM_MODE" )
@@ -194,19 +194,19 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
      CASE( ">MM_CELL" )
         CALL read_cell_mm()
         !
-     CASE( ">MM_CHARGE" )
+     CASE( ">MM_CHARGES" )
         CALL read_mm_charge(socket)
         !
      CASE( ">MM_MASK" )
         CALL read_mm_mask(socket)
         !
-     CASE( ">MM_COORD" )
+     CASE( ">MM_COORDS" )
         CALL read_mm_coord(socket)
         !
-     CASE( ">MM_TYPE" )
+     CASE( ">MM_TYPES" )
         CALL read_types(socket)
         !
-     CASE( ">MM_MASS" )
+     CASE( ">MM_MASSES" )
         CALL read_mass(socket)
         !
      CASE( ">ARADII" )
@@ -223,13 +223,13 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
      CASE( "<ENERGY" )
         CALL write_energy()
         !
-     CASE( "<FORCE" )
+     CASE( "<FORCES" )
         CALL write_forces()
         !
-     CASE( "<EC_FORCE" )
+     CASE( "<EC_FORCES" )
         CALL write_ec_force(socket)
         !
-     CASE( "<MM_FORCE" )
+     CASE( "<MM_FORCES" )
         CALL write_mm_force(socket, rho%of_r, nspin, dfftp)
         !
      CASE( "EXIT" )
