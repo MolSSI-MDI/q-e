@@ -19,6 +19,8 @@ Contents:
 #ifndef MDI_LIBRARY
 #define MDI_LIBRARY
 
+#include <mpi.h>
+
 // length of an MDI command in characters
 extern const int MDI_COMMAND_LENGTH;
 
@@ -29,6 +31,10 @@ extern const int MDI_NAME_LENGTH;
 extern const int MDI_INT;
 extern const int MDI_DOUBLE;
 extern const int MDI_CHAR;
+
+// MDI communication types
+extern const int MDI_TCP;
+extern const int MDI_MPI;
 
 /*----------------------*/
 /* MDI unit conversions */
@@ -54,12 +60,13 @@ extern const double MDI_EV_TO_HARTREE;
 extern const double MDI_RYDBERG_TO_HARTREE;
 extern const double MDI_KELVIN_TO_HARTREE;
 
-int MDI_Init(int);
-int MDI_Open(int, int, const char*);
-int MDI_Accept_Connection(int);
+int MDI_Listen(const char* method, void* options, void* world_comm);
+int MDI_Request_Connection(const char* method, void* options, void* world_comm);
+int MDI_Accept_Connection();
 int MDI_Send(const char*, int, int, int);
 int MDI_Recv(char*, int, int, int);
 int MDI_Send_Command(const char*, int);
 int MDI_Recv_Command(char*, int);
+int MDI_MPI_Comm(MPI_Comm*);
 
 #endif

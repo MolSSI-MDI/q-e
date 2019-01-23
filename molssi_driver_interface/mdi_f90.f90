@@ -12,6 +12,9 @@
    INTEGER, PROTECTED, BIND(C, name="MDI_DOUBLE")                :: MDI_DOUBLE
    INTEGER, PROTECTED, BIND(C, name="MDI_CHAR")                  :: MDI_CHAR
 
+   INTEGER, PROTECTED, BIND(C, name="MDI_TCP")                   :: MDI_TCP
+   INTEGER, PROTECTED, BIND(C, name="MDI_MPI")                   :: MDI_MPI
+
    !----------------------!
    ! MDI unit conversions !
    !----------------------!
@@ -50,24 +53,32 @@
 
   INTERFACE
 
-     FUNCTION MDI_Init_(port) bind(c, name="MDI_Init")
+     FUNCTION MDI_Listen_(method, options, world_comm) bind(c, name="MDI_Listen")
        USE, INTRINSIC :: iso_c_binding
-       INTEGER(KIND=C_INT), VALUE               :: port
-       INTEGER(KIND=C_INT)                      :: MDI_Init_
-     END FUNCTION MDI_Init_
+       CHARACTER(C_CHAR)                        :: method(*)
+       TYPE(C_PTR), VALUE                       :: options
+       TYPE(C_PTR), VALUE                       :: world_comm
+       INTEGER(KIND=C_INT)                      :: MDI_Listen_
+     END FUNCTION MDI_Listen_
 
-     FUNCTION MDI_Open_(inet, port, hostname_ptr) BIND(C, name="MDI_Open")
+     FUNCTION MDI_Request_Connection_(method, options, world_comm) BIND(C, name="MDI_Request_Connection")
        USE ISO_C_BINDING
-       INTEGER(KIND=C_INT), VALUE               :: inet, port
-       CHARACTER(KIND=C_CHAR), DIMENSION(*)     :: hostname_ptr
-       INTEGER(KIND=C_INT)                      :: MDI_Open_
-     END FUNCTION MDI_Open_
+       CHARACTER(C_CHAR)                        :: method(*)
+       TYPE(C_PTR), VALUE                       :: options
+       TYPE(C_PTR), VALUE                       :: world_comm
+       INTEGER(KIND=C_INT)                      :: MDI_Request_Connection_
+     END FUNCTION MDI_Request_Connection_
 
-     FUNCTION MDI_Accept_Connection_(sockfd) bind(c, name="MDI_Accept_Connection")
+     FUNCTION MDI_Accept_Connection_() bind(c, name="MDI_Accept_Connection")
        USE, INTRINSIC :: iso_c_binding
-       INTEGER(KIND=C_INT), VALUE               :: sockfd
        INTEGER(KIND=C_INT)                      :: MDI_Accept_Connection_
      END FUNCTION MDI_Accept_Connection_
+
+     FUNCTION MDI_MPI_Comm_(comm) bind(c, name="MDI_MPI_Comm")
+       USE, INTRINSIC :: iso_c_binding
+       INTEGER(KIND=C_INT)                      :: comm
+       INTEGER(KIND=C_INT)                      :: MDI_MPI_Comm_
+     END FUNCTION MDI_MPI_Comm_
 
      FUNCTION MDI_Send_(data_ptr, len, type, sockfd) BIND(C, name="MDI_Send")
        USE ISO_C_BINDING
@@ -103,53 +114,53 @@
 
   CONTAINS
 
-    SUBROUTINE MDI_Init(sockfd, port)
+    SUBROUTINE MDI_Listen(fmethod, options, fworld_comm, ierr)
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: port
-      INTEGER, INTENT(OUT) :: sockfd
+      CHARACTER(LEN=*), INTENT(IN) :: fmethod
+      TYPE(C_PTR), INTENT(IN) :: options
+      INTEGER, INTENT(IN) :: fworld_comm
+      INTEGER, INTENT(OUT) :: ierr
+      INTEGER, TARGET :: cworld_comm
 
-      sockfd = MDI_Init_(port)
-    END SUBROUTINE MDI_Init
+      cworld_comm = fworld_comm
+      ierr = MDI_Listen_( TRIM(fmethod)//c_null_char, options, c_loc(cworld_comm) )
+    END SUBROUTINE MDI_Listen
 
-    SUBROUTINE MDI_Open(sockfd, inet, port, hostname_ptr)
+    SUBROUTINE MDI_Request_Connection(fmethod, foptions, fworld_comm, comm)
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: inet, port
-      INTEGER, INTENT(OUT) :: sockfd
-      CHARACTER(LEN=1024), INTENT(IN) :: hostname_ptr
-      CHARACTER(LEN=1,KIND=C_CHAR) :: chost(1024)
+      CHARACTER(LEN=*), INTENT(IN) :: fmethod
+      CHARACTER(LEN=*), INTENT(IN) :: foptions
+      INTEGER, INTENT(IN) :: fworld_comm
+      INTEGER, TARGET, INTENT(OUT) :: comm
+      INTEGER, TARGET :: cworld_comm
 
-      CALL fstr2cstr(hostname_ptr, chost)
-      sockfd = MDI_Open_(inet, port, chost)
-    END SUBROUTINE MDI_Open
+      INTEGER                                  :: i
+      CHARACTER(LEN=1, KIND=C_CHAR), TARGET    :: coptions( LEN_TRIM(foptions) + 1 )
 
-    SUBROUTINE MDI_Accept_Connection(sockfd, connection)
+      DO i = 1, LEN_TRIM(foptions)
+         coptions(i) = foptions(i:i)
+      END DO
+      coptions( LEN_TRIM(foptions) + 1 ) = c_null_char
+
+      cworld_comm = fworld_comm
+      comm = MDI_Request_Connection_( TRIM(fmethod)//c_null_char, &
+           c_loc(coptions), c_loc(cworld_comm) )
+    END SUBROUTINE MDI_Request_Connection
+
+    SUBROUTINE MDI_Accept_Connection(connection)
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: sockfd
       INTEGER, INTENT(OUT) :: connection
 
-      connection = MDI_Accept_Connection_(sockfd)
+      connection = MDI_Accept_Connection_()
     END SUBROUTINE MDI_Accept_Connection
 
-    SUBROUTINE fstr2cstr(fstr, cstr, plen)
+    SUBROUTINE MDI_MPI_Comm(comm, ierr)
       IMPLICIT NONE
-      CHARACTER(LEN=*), INTENT(IN) :: fstr
-      CHARACTER(LEN=1,KIND=C_CHAR), INTENT(OUT) :: cstr(:)
-      INTEGER, INTENT(IN), OPTIONAL :: plen
+      INTEGER, INTENT(INOUT) :: comm
+      INTEGER, INTENT(OUT) :: ierr
 
-      INTEGER i,n
-      IF (PRESENT(plen)) THEN
-         n = plen
-         DO i=1,n
-            cstr(i) = fstr(i:i)
-         ENDDO
-      ELSE
-         n = LEN_TRIM(fstr)
-         DO i=1,n
-            cstr(i) = fstr(i:i)
-         ENDDO
-         cstr(n+1) = C_NULL_CHAR
-      END IF
-    END SUBROUTINE fstr2cstr
+      ierr = MDI_MPI_Comm_(comm)
+    END SUBROUTINE MDI_MPI_Comm
 
     SUBROUTINE MDI_Send_s (fstring, len, type, sockfd, ierr)
       USE ISO_C_BINDING
@@ -160,10 +171,12 @@
       INTEGER                                  :: i
       CHARACTER(LEN=1, KIND=C_CHAR), TARGET    :: cstring(len)
 
-      DO i = 1,len
+      DO i = 1, LEN_TRIM(fstring)
          cstring(i) = fstring(i:i)
-      ENDDO
-      ierr = MDI_Send_(c_loc(cstring(1)), len, type, sockfd)
+      END DO
+      cstring( LEN_TRIM(fstring) + 1 ) = c_null_char
+
+      ierr = MDI_Send_( c_loc(cstring), len, type, sockfd)
     END SUBROUTINE MDI_Send_s
 
     SUBROUTINE MDI_Send_d (fdata, len, type, sockfd, ierr)
@@ -215,12 +228,21 @@
       INTEGER, INTENT(OUT)                     :: ierr
 
       INTEGER                                  :: i
+      LOGICAL                                  :: end_string
       CHARACTER(LEN=1, KIND=C_CHAR), TARGET    :: cstring(len)
 
       ierr = MDI_Recv_(c_loc(cstring(1)), len, type, sockfd)
-      fstring=""   
+
+      ! convert from C string to Fortran string
+      fstring = ""
+      end_string = .false.
       DO i = 1,len
-         fstring(i:i) = cstring(i)
+         IF ( cstring(i) == c_null_char ) end_string = .true.
+         IF ( end_string ) THEN
+            fstring(i:i) = ' '
+         ELSE
+            fstring(i:i) = cstring(i)
+         END IF
       ENDDO
     END SUBROUTINE MDI_Recv_s
 
@@ -275,15 +297,12 @@
       INTEGER                                  :: i
       CHARACTER(LEN=1, KIND=C_CHAR), TARGET    :: cstring(MDI_COMMAND_LENGTH)
 
-      DO i = 1, LEN(fstring)
+      DO i = 1, LEN_TRIM(fstring)
          cstring(i) = fstring(i:i)
-      ENDDO
-
-      DO i = LEN(fstring) + 1, MDI_COMMAND_LENGTH
-         cstring(i) = " "
       END DO
+      cstring( LEN_TRIM(fstring) + 1 ) = c_null_char
 
-      ierr = MDI_Send_Command_(c_loc(cstring(1)), sockfd)
+      ierr = MDI_Send_Command_( c_loc(cstring), sockfd)
     END SUBROUTINE MDI_Send_Command
 
     SUBROUTINE MDI_Recv_Command(fstring, sockfd, ierr)
@@ -293,14 +312,22 @@
       INTEGER, INTENT(OUT)                     :: ierr
 
       INTEGER                                  :: i
+      LOGICAL                                  :: end_string
       CHARACTER(LEN=1, KIND=C_CHAR), TARGET    :: cstring(MDI_COMMAND_LENGTH)
 
       ierr = MDI_Recv_Command_(c_loc(cstring(1)), sockfd)
 
+      ! convert from C string to Fortran string
+      fstring = ""
+      end_string = .false.
       DO i = 1, MDI_COMMAND_LENGTH
-         fstring(i:i) = cstring(i)
+         IF ( cstring(i) == c_null_char ) end_string = .true.
+         IF ( end_string ) THEN
+            fstring(i:i) = ' '
+         ELSE
+            fstring(i:i) = cstring(i)
+         END IF
       ENDDO
-
     END SUBROUTINE MDI_Recv_Command
 
   END MODULE
