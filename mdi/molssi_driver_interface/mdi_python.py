@@ -20,11 +20,13 @@ mdi_name = mdi_name_file.read()
 mdi = ctypes.CDLL(dir_path + "/" + mdi_name)
 
 # MDI Variables
-MDI_COMMAND_LENGTH = ctypes.c_int.in_dll(mdi, "MDI_COMMAND_LENGTH")
-MDI_NAME_LENGTH = ctypes.c_int.in_dll(mdi, "MDI_NAME_LENGTH")
-MDI_INT = ctypes.c_int.in_dll(mdi, "MDI_INT")
-MDI_DOUBLE = ctypes.c_int.in_dll(mdi, "MDI_DOUBLE")
-MDI_CHAR = ctypes.c_int.in_dll(mdi, "MDI_CHAR")
+MDI_COMMAND_LENGTH = ctypes.c_int.in_dll(mdi, "MDI_COMMAND_LENGTH").value
+MDI_NAME_LENGTH = ctypes.c_int.in_dll(mdi, "MDI_NAME_LENGTH").value
+MDI_INT = ctypes.c_int.in_dll(mdi, "MDI_INT").value
+MDI_DOUBLE = ctypes.c_int.in_dll(mdi, "MDI_DOUBLE").value
+MDI_CHAR = ctypes.c_int.in_dll(mdi, "MDI_CHAR").value
+MDI_TCP = ctypes.c_int.in_dll(mdi, "MDI_TCP").value
+MDI_MPI = ctypes.c_int.in_dll(mdi, "MDI_MPI").value
 
 # Unit conversions
 MDI_METER_TO_BOHR = ctypes.c_double.in_dll(mdi, "MDI_METER_TO_BOHR").value
@@ -42,23 +44,23 @@ MDI_KELVIN_TO_HARTREE = ctypes.c_double.in_dll(mdi, "MDI_KELVIN_TO_HARTREE").val
 
 
 
-# MDI_Init
-mdi.MDI_Init.argtypes = [ctypes.c_int]
-mdi.MDI_Init.restype = ctypes.c_int
-def MDI_Init(arg):
-    return mdi.MDI_Init(arg)
+# MDI_Listen
+mdi.MDI_Listen.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.POINTER(ctypes.c_char), ctypes.POINTER(ctypes.c_int)]
+mdi.MDI_Listen.restype = ctypes.c_int
+def MDI_Listen(arg1, arg2, arg3):
+    return mdi.MDI_Listen(arg1, arg2, arg3)
 
-# MDI_Open
-mdi.MDI_Open.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_char)]
-mdi.MDI_Open.restype = ctypes.c_int
-def MDI_Open(arg1, arg2, arg3):
-    return mdi.MDI_Open(arg1, arg2, arg3)
+# MDI_Request_Connection
+mdi.MDI_Request_Connection.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.POINTER(ctypes.c_char), ctypes.POINTER(ctypes.c_int)]
+mdi.MDI_Request_Connection.restype = ctypes.c_int
+def MDI_Request_Connection(arg1, arg2, arg3):
+    return mdi.MDI_Request_Connection(arg1, arg2, arg3)
 
 # MDI_Accept_Connection
-mdi.MDI_Accept_Connection.argtypes = [ctypes.c_int]
+mdi.MDI_Accept_Connection.argtypes = []
 mdi.MDI_Accept_Connection.restype = ctypes.c_int
-def MDI_Accept_Connection(arg):
-    return mdi.MDI_Accept_Connection(arg)
+def MDI_Accept_Connection():
+    return mdi.MDI_Accept_Connection()
 
 # MDI_Send
 mdi.MDI_Send.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.c_int, ctypes.c_int]
@@ -73,16 +75,13 @@ def MDI_Send(arg1, arg2, arg3, arg4):
         arg_type = ctypes.c_char
     arg_size = ctypes.sizeof(arg_type)
 
-    arg1_ = (ctypes.c_char*(arg2*arg_size))()
-
-    arg_value = ctypes.cast(arg1, ctypes.POINTER(arg_type*arg2)).contents
     if arg2 == 1:
-        arg_value = arg1
+        arg1_ = (ctypes.c_char*(arg2*arg_size))(arg1)
     else:
-        for i in range(arg2):
-            arg_value[i] = arg1[i]
+        arg1_temp = (arg_type*arg2)(*arg1)
+        arg1_ = ctypes.cast(arg1_temp, ctypes.POINTER(ctypes.c_char))
 
-    return mdi.MDI_Send(arg1_, arg2, arg3, arg4)
+    return mdi.MDI_Send(arg1_, arg2, ctypes.c_int(arg3), arg4)
 
 # MDI_Recv
 mdi.MDI_Recv.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.c_int, ctypes.c_int]
@@ -98,13 +97,20 @@ def MDI_Recv(arg2, arg3, arg4):
     arg_size = ctypes.sizeof(arg_type)
 
     arg1 = (ctypes.c_char*(arg2*arg_size))()
-    ret = mdi.MDI_Recv(arg1, arg2, arg3, arg4)
+    ret = mdi.MDI_Recv(arg1, arg2, ctypes.c_int(arg3), arg4)
 
     result = ctypes.cast(arg1, ctypes.POINTER(arg_type*arg2)).contents
-    if arg2 == 1:
-        presult = result[0]
+
+    if (arg3 == MDI_CHAR):
+        # if this is an MDI_CHAR, convert it to a python string
+        presult = ctypes.cast(result, ctypes.c_char_p).value
+        presult = presult.decode('utf-8')
     else:
-        presult = [ result[i] for i in range(arg2) ]
+        if arg2 == 1:
+            presult = result[0]
+        else:
+            presult = [ result[i] for i in range(arg2) ]
+
     return presult
 
 # MDI_Send_Command
@@ -119,4 +125,4 @@ mdi.MDI_Recv_Command.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_int]
 mdi.MDI_Recv_Command.restype = ctypes.c_int
 def MDI_Recv_Command(arg2):
     ret = mdi.MDI_Recv_Command(arg1, arg2)
-    return arg1
+    return arg1.decode('utf-8')
