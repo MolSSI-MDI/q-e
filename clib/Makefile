@@ -16,8 +16,7 @@ memstat.o \
 ptrace.o \
 sockets.o \
 qmmm_aux.o \
-qsort.o \
-mdi.o
+qsort.o
 
 all : clib.a
 

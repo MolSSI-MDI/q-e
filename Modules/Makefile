@@ -45,7 +45,6 @@ ions_base.o \
 kernel_table.o \
 kind.o \
 libxc.o \
-mdi_f90.o \
 mdiis.o \
 mm_dispersion.o \
 mp_bands.o \

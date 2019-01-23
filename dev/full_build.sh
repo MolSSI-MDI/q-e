@@ -5,6 +5,7 @@ module load intel-mpi/2017u4
 cd ../
 
 # copy the MDI modules out of the subtree and into the appropriate directories
+rm -r mdi/build
 cp mdi/molssi_driver_interface/mdi.c clib
 cp mdi/molssi_driver_interface/mdi.h clib
 cp mdi/molssi_driver_interface/mdi_f90.f90 Modules

@@ -176,7 +176,7 @@ pw4gwwlib : phlibs
 	if test -d GWW ; then \
 	( cd GWW ; $(MAKE) pw4gwwa || exit 1 ) ; fi
 
-mods : libiotk libfox libutil libla libfft
+mods : libiotk libfox libutil libla libfft libmdi
 	( cd Modules ; $(MAKE) TLDEPS= all || exit 1 )
 
 libks_solvers : libs libutil libla
@@ -199,6 +199,12 @@ lrmods : mods pwlibs
 
 dftd3 : mods
 	( cd dft-d3 ; $(MAKE) TLDEPS= all || exit 1 )
+
+##### TAB edit
+libmdi : 
+	( cd mdi ; $(MAKE) TLDEPS= all || exit 1 )
+#	( cd mdi ; mkdir build ; cd build ; cmake ../ ; make || exit 1 )
+##### end TAB edit
 
 bindir :
 	test -d bin || mkdir bin
