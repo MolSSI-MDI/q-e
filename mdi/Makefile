@@ -14,7 +14,10 @@ all : libmdi.a
 
 libmdi.a : 
 	- mkdir build
-	- cd build; cmake -Dlibtype=STATIC -Dlanguage=Fortran .. ; make
+	- cd build; \
+          cmake -Dlibtype=STATIC -Dlanguage=Fortran -D CMAKE_C_COMPILER=$(CC) -D CMAKE_CXX_COMPILER=$(CC) \
+	     -D CMAKE_Fortran_COMPILER=$(MPIF90) .. ; \
+          make
 
 #tldeps:
 #	if test -n "$(TLDEPS)" ; then \
