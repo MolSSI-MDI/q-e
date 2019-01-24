@@ -36,7 +36,8 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   USE lsda_mod,         ONLY : nspin
   USE fft_base,         ONLY : dfftp
   !<<<
-  USE mdi,              ONLY : MDI_Send, MDI_CHAR, MDI_NAME_LENGTH
+  USE mdi,              ONLY : MDI_Send, MDI_Recv, MDI_Recv_Command, &
+                               MDI_CHAR, MDI_DOUBLE, MDI_INT, MDI_NAME_LENGTH
   USE command_line_options, ONLY : command_line
   !>>>
   !
@@ -128,7 +129,11 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   !
   driver_loop: DO
      !
-     IF ( ionode ) CALL readbuffer(socket, header, MSGLEN)
+     IF ( is_mdi ) THEN
+        IF ( ionode ) CALL MDI_Recv_Command( header, socket, ierr )
+     ELSE
+        IF ( ionode ) CALL readbuffer(socket, header, MSGLEN)
+     END IF
      CALL mp_bcast( header, ionode_id, intra_image_comm )
      !
      IF ( ionode ) write(*,*) " @ DRIVER MODE: Message from server: ", trim( header )
@@ -468,7 +473,7 @@ CONTAINS
     !
     ! ... Check if the replica id (rid) is the same as in the last run
     !
-    IF ( ionode ) CALL readbuffer( socket, rid ) 
+    IF ( ionode ) CALL MDI_Recv( rid, 1, MDI_INT, socket, ierr )
     CALL mp_bcast( rid, ionode_id, intra_image_comm )
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Receiving replica", rid, rid_old
@@ -487,7 +492,7 @@ CONTAINS
   SUBROUTINE set_nat()
     ! ... Reads the number of atoms
     !
-    IF ( ionode ) CALL readbuffer(socket, nat)
+    IF ( ionode ) CALL MDI_Recv( nat, 1, MDI_INT, socket, ierr )
     CALL mp_bcast(    nat, ionode_id, intra_image_comm )
     nat_input = nat
     !
@@ -515,7 +520,7 @@ CONTAINS
     INTEGER :: natoms_in
     ! ... Reads the number of mm atoms
     !
-    IF ( ionode ) CALL readbuffer(socket, natoms_in)
+    IF ( ionode ) CALL MDI_Recv( natoms_in, 1, MDI_INT, socket, ierr )
     !
     IF ( ionode ) write(*,*) " @ DRIVER MODE: Read mm natoms: ",natoms_in
     !
@@ -528,7 +533,7 @@ CONTAINS
     INTEGER :: ntypes_in
     ! ... Reads the number of atom types
     !
-    IF ( ionode ) CALL readbuffer(socket, ntypes_in)
+    IF ( ionode ) CALL MDI_Recv( ntypes_in, 1, MDI_INT, socket, ierr )
     !
     IF ( ionode ) write(*,*) " @ DRIVER MODE: Read ntypes: ",ntypes_in
     !
@@ -540,7 +545,7 @@ CONTAINS
   SUBROUTINE read_qmmm_mode()
     ! ... Reads the number of atoms
     !
-    IF ( ionode ) CALL readbuffer(socket, qmmm_mode)
+    IF ( ionode ) CALL MDI_Recv( qmmm_mode, 1, MDI_INT, socket, ierr )
     CALL mp_bcast( qmmm_mode, ionode_id, intra_image_comm )
     !
     IF ( ionode ) write(*,*) " @ DRIVER MODE: Read qmmm mode: ",qmmm_mode
@@ -561,7 +566,7 @@ CONTAINS
     !
     ! ... First reads cell and the number of atoms
     !
-    IF ( ionode ) CALL readbuffer(socket, mtxbuffer, 9)
+    IF ( ionode ) CALL MDI_Recv( mtxbuffer, 9, MDI_DOUBLE, socket, ierr )
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Received cell "
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: mtxbuffer: ",mtxbuffer
     cellh = RESHAPE(mtxbuffer, (/3,3/))
@@ -605,7 +610,7 @@ CONTAINS
     !
     ! ... Read the dimensions of the MM cell
     !
-    IF ( ionode ) CALL readbuffer(socket, mtxbuffer, 9)
+    IF ( ionode ) CALL MDI_Recv( mtxbuffer, 9, MDI_DOUBLE, socket, ierr )
     !
     CALL set_cell_mm(mtxbuffer)
     !
@@ -618,7 +623,7 @@ CONTAINS
     !
     ! ... Read the atoms coordinates and share them
     !
-    IF ( ionode ) CALL readbuffer(socket, combuf, nat*3)
+    IF ( ionode ) CALL MDI_Recv( combuf, 3*nat, MDI_DOUBLE, socket, ierr )
     CALL mp_bcast( combuf, ionode_id, intra_image_comm)
     !
     WRITE(6,*)" @ DRIVER MODE: input coordinates"
@@ -675,7 +680,7 @@ CONTAINS
     ! ... Write the total energy in a.u.
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Sending energy: ",0.5*etot
-    IF ( ionode ) CALL writebuffer(socket, 0.5*etot)
+    IF ( ionode ) CALL MDI_Send( 0.5*etot, 1, MDI_DOUBLE, socket, ierr )
     !
   END SUBROUTINE write_energy
   !
@@ -693,7 +698,7 @@ CONTAINS
     !
     ! ... Write the forces
     !
-    IF ( ionode ) CALL writebuffer( socket, combuf, 3 * nat)
+    IF ( ionode ) CALL MDI_Send( combuf, 3*nat, MDI_DOUBLE, socket, ierr )
     !
   END SUBROUTINE write_forces
   !>>>
