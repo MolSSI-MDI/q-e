@@ -255,7 +255,7 @@ CONTAINS
   SUBROUTINE create_socket (srvaddress)
     USE f90sockets,       ONLY : open_socket 
     !<<<
-    USE mdi,              ONLY : MDI_Open
+    USE mdi,              ONLY : MDI_Request_Connection
     !>>>
     IMPLICIT NONE
     CHARACTER(*), INTENT(IN)  :: srvaddress
@@ -294,7 +294,8 @@ CONTAINS
     !>>>
     !<<<
     IF (is_mdi) THEN
-       CALL MDI_Open ( socket, inet, port, trim(address)//achar(0) )
+       !CALL MDI_Open ( socket, inet, port, trim(address)//achar(0) )
+       CALL MDI_Request_Connection( "TCP", "localhost:8021", port, socket )
     ELSE
        CALL open_socket ( socket, inet, port, trim(address)//achar(0) )
     END IF
