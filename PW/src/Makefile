@@ -245,7 +245,8 @@ wannier_enrg.o
 
 QEMODS=../../Modules/libqemod.a \
        ../../KS_Solvers/libks_solvers.a \
-       ../../FFTXlib/libqefft.a ../../LAXlib/libqela.a ../../UtilXlib/libutil.a ../../dft-d3/libdftd3qe.a
+       ../../FFTXlib/libqefft.a ../../LAXlib/libqela.a ../../UtilXlib/libutil.a ../../dft-d3/libdftd3qe.a \
+       ../../mdi/build/molssi_driver_interface/libmdi.a
 
 TLDEPS=bindir mods libs liblapack libblas dftd3
 
