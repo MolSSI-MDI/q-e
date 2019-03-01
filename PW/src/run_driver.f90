@@ -121,10 +121,14 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
      nat = nat_input
      CALL allocate_nat_arrays()
   END IF
-  !>>>
   !
-  IF (ionode) CALL create_socket(srvaddress)
-  !<<<
+  IF (ionode) THEN
+     IF ( is_mdi ) THEN
+        CALL MDI_Accept_Communicator( socket )
+     ELSE
+        CALL create_socket(srvaddress)
+     END IF
+  END IF
   WRITE(6,*)'Finished calling create socket'
   !>>>
   !
@@ -299,13 +303,13 @@ CONTAINS
     WRITE(6,*)'Calling open_socket'
     !>>>
     !<<<
-    IF (is_mdi) THEN
+    !IF (is_mdi) THEN
        !CALL MDI_Open ( socket, inet, port, trim(address)//achar(0) )
        !CALL MDI_Request_Connection( "TCP", "localhost:8021", port, socket )
-       CALL MDI_Accept_Communicator( socket )
-    ELSE
+    !   CALL MDI_Accept_Communicator( socket )
+    !ELSE
        CALL open_socket ( socket, inet, port, trim(address)//achar(0) )
-    END IF
+    !END IF
     !>>>
     !<<<
     WRITE(6,*)'Finished calling open_socket'
@@ -821,16 +825,25 @@ FUNCTION get_mdi_options ( command_line ) RESULT ( options )
   CHARACTER(LEN=1024) :: options
   !
   INTEGER  :: nargs, narg
-  CHARACTER (len=320) :: arg
+  CHARACTER (len=1024) :: arg
   !
+  nargs = command_argument_count()
+  WRITE(6,*)'COMMAND_ARGUMENT_COUNT: ',nargs
+
+  DO narg = 1, nargs
+     CALL get_command_argument(narg, arg)
+     WRITE(6,*)'Argument: ', narg, TRIM(arg)
+  END DO
+
   options = ' '
-  IF ( command_line == ' ' ) RETURN
+  !IF ( command_line == ' ' ) RETURN
   !
-  nargs = my_iargc ( command_line )
+  !nargs = my_iargc ( command_line )
   !
   narg = 0
 10 CONTINUE
-  CALL my_getarg ( command_line, narg, arg )
+  CALL get_command_argument(narg, arg)
+  !CALL my_getarg ( command_line, narg, arg )
   IF ( TRIM (arg) == '-mdi' .OR. TRIM (arg) == '--mdi' ) THEN
      IF ( options == ' ' ) THEN
         narg = narg + 1
@@ -838,7 +851,8 @@ FUNCTION get_mdi_options ( command_line ) RESULT ( options )
            CALL infomsg('get_server_address','missing server IP in command line')
            RETURN
         ELSE
-           CALL my_getarg ( command_line, narg, options )
+           CALL get_command_argument(narg, options)
+           !CALL my_getarg ( command_line, narg, options )
         END IF
      ELSE
         CALL infomsg('get_server_address','duplicated server IP in command line')

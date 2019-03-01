@@ -43,6 +43,10 @@ CONTAINS
   SUBROUTINE mp_world_start ( my_world_comm )
     !-----------------------------------------------------------------------
     !
+    !<<<
+    USE mdi, ONLY : MDI_Init
+    !>>>
+    !
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: my_world_comm
     INTEGER :: color, key
@@ -52,6 +56,15 @@ CONTAINS
 #if defined(_OPENMP)
     INTEGER :: PROVIDED
 #endif
+    !<<<
+    CHARACTER(len=1024) :: mdi_options
+    !! Get the address of the server
+    !CHARACTER(len=1024) :: get_mdi_options
+    INTEGER :: mdi_ierr
+    !
+    !mdi_options = "-role ENGINE -name QM -method TCP -port 8021 -hostname localhost"
+    mdi_options = "-role ENGINE -name QM -method MPI"
+    !>>>
     !
     world_comm = my_world_comm
     !
@@ -69,6 +82,11 @@ CONTAINS
        IF (ierr/=0) CALL mp_stop( 8001 )
     END IF
 #endif
+    !<<<
+    IF ( trim(mdi_options) .ne. ' ' ) THEN
+       CALL MDI_Init(mdi_options, world_comm, mdi_ierr)
+    END IF
+    !>>>
     !
     CALL mp_start( nproc, mpime, world_comm )
     !
