@@ -38,6 +38,10 @@ PROGRAM pwscf
   USE mp_global,         ONLY : mp_startup
   USE read_input,        ONLY : read_input_file
   USE command_line_options, ONLY: input_file_, command_line
+  !<<<
+  USE mdi,               ONLY : MDI_Init
+  USE parallel_include
+  !>>>
   !
   IMPLICIT NONE
   CHARACTER(len=256) :: srvaddress
@@ -51,7 +55,19 @@ PROGRAM pwscf
   LOGICAL, external :: matches
   !! checks if first string is contained in the second
   !
-  CALL mp_startup ( start_images=.true., diag_in_band_group = .true. )
+  !<<<
+  CHARACTER(len=1024) :: mdi_options
+  !! Get the address of the server 
+  CHARACTER(len=1024) :: get_mdi_options
+  INTEGER :: my_comm, ierr
+  !
+  mdi_options = get_mdi_options ( command_line )
+  !
+  my_comm = MPI_COMM_WORLD
+  CALL MDI_Init(mdi_options, my_comm, ierr)
+  !CALL mp_startup ( start_images=.true., diag_in_band_group = .true. )
+  CALL mp_startup ( my_world_comm = my_comm, start_images=.true., diag_in_band_group = .true. )
+  !>>>
   CALL environment_start ( 'PWSCF' )
   !
   ! ... Check if running standalone or in "driver" mode
