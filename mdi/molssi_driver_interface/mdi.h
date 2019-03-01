@@ -6,8 +6,7 @@
 
 Contents:
    MDI_Init: Initializes a socket and sets it to listen
-   MDI_Open: Opens a socket and requests a connection with a specified host
-   MDI_Accept_Connection: Accepts an incoming connection request
+   MDI_Accept_Communicator: Accepts a new MDI communicator
    MDI_Send: Sends data through the socket
    MDI_Recv: Receives data from the socket
    MDI_Send_Command: Sends a string of length MDI_COMMAND_LENGTH over the
@@ -19,7 +18,18 @@ Contents:
 #ifndef MDI_LIBRARY
 #define MDI_LIBRARY
 
-#include <mpi.h>
+/*
+#ifdef __cplusplus
+namespace MDI_STUBS { }
+extern "C" {
+#endif
+*/
+
+// type of an MDI communicator handle
+typedef int MDI_Comm;
+
+// type of an MDI datatype handle
+typedef int MDI_Datatype;
 
 // length of an MDI command in characters
 extern const int MDI_COMMAND_LENGTH;
@@ -27,10 +37,15 @@ extern const int MDI_COMMAND_LENGTH;
 // length of an MDI name in characters
 extern const int MDI_NAME_LENGTH;
 
+// value of a null communicator
+extern const MDI_Comm MDI_NULL_COMM;
+
 // MDI data types
 extern const int MDI_INT;
 extern const int MDI_DOUBLE;
 extern const int MDI_CHAR;
+extern const int MDI_INT_NUMPY;
+extern const int MDI_DOUBLE_NUMPY;
 
 // MDI communication types
 extern const int MDI_TCP;
@@ -60,13 +75,23 @@ extern const double MDI_EV_TO_HARTREE;
 extern const double MDI_RYDBERG_TO_HARTREE;
 extern const double MDI_KELVIN_TO_HARTREE;
 
-int MDI_Listen(const char* method, void* options, void* world_comm);
-int MDI_Request_Connection(const char* method, void* options, void* world_comm);
-int MDI_Accept_Connection();
-int MDI_Send(const char*, int, int, int);
-int MDI_Recv(char*, int, int, int);
-int MDI_Send_Command(const char*, int);
-int MDI_Recv_Command(char*, int);
-int MDI_MPI_Comm(MPI_Comm*);
+int MDI_Init(const char* options, void* world_comm);
+int MDI_Accept_Communicator();
+int MDI_Send(const void* buf, int count, MDI_Datatype datatype, MDI_Comm comm);
+int MDI_Recv(void* buf, int count, MDI_Datatype datatype, MDI_Comm comm);
+int MDI_Send_Command(const char* buf, MDI_Comm comm);
+int MDI_Recv_Command(char* buf, MDI_Comm comm);
+double MDI_Conversion_Factor(char* in_unit, char* out_unit);
+
+// only used internally by MDI
+void mdi_error(const char* message);
+int MDI_Get_MPI_Code_Rank();
+void MDI_Set_MPI_Intra_Rank(int rank);
+
+/*
+#ifdef __cplusplus
+}
+#endif
+*/
 
 #endif
