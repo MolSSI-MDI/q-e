@@ -811,7 +811,7 @@ CONTAINS
 END SUBROUTINE run_driver
 
 !<<<
-FUNCTION get_mdi_options ( command_line ) RESULT ( options )
+FUNCTION get_mdi_options ( ) RESULT ( options )
   ! 
   ! checks for the presence of a command-line option of the form
   ! -mdi "options" or --mdi "options";
@@ -821,20 +821,13 @@ FUNCTION get_mdi_options ( command_line ) RESULT ( options )
   !
   USE command_line_options, ONLY : my_iargc, my_getarg
   IMPLICIT NONE
-  CHARACTER(LEN=*), INTENT(IN) :: command_line
+  !CHARACTER(LEN=*), INTENT(IN) :: command_line
   CHARACTER(LEN=1024) :: options
   !
   INTEGER  :: nargs, narg
   CHARACTER (len=1024) :: arg
   !
   nargs = command_argument_count()
-  WRITE(6,*)'COMMAND_ARGUMENT_COUNT: ',nargs
-
-  DO narg = 1, nargs
-     CALL get_command_argument(narg, arg)
-     WRITE(6,*)'Argument: ', narg, TRIM(arg)
-  END DO
-
   options = ' '
   !IF ( command_line == ' ' ) RETURN
   !

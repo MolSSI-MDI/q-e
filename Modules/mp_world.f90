@@ -40,7 +40,7 @@ MODULE mp_world
 CONTAINS
   !
   !-----------------------------------------------------------------------
-  SUBROUTINE mp_world_start ( my_world_comm )
+  SUBROUTINE mp_world_start ( my_world_comm, mdi_options )
     !-----------------------------------------------------------------------
     !
     !<<<
@@ -57,13 +57,13 @@ CONTAINS
     INTEGER :: PROVIDED
 #endif
     !<<<
-    CHARACTER(len=1024) :: mdi_options
+    CHARACTER(len=1024), INTENT(IN), OPTIONAL :: mdi_options
     !! Get the address of the server
     !CHARACTER(len=1024) :: get_mdi_options
     INTEGER :: mdi_ierr
     !
     !mdi_options = "-role ENGINE -name QM -method TCP -port 8021 -hostname localhost"
-    mdi_options = "-role ENGINE -name QM -method MPI"
+    !mdi_options = "-role ENGINE -name QM -method MPI"
     !>>>
     !
     world_comm = my_world_comm
@@ -83,8 +83,10 @@ CONTAINS
     END IF
 #endif
     !<<<
-    IF ( trim(mdi_options) .ne. ' ' ) THEN
-       CALL MDI_Init(mdi_options, world_comm, mdi_ierr)
+    IF ( PRESENT(mdi_options) ) THEN
+       IF ( trim(mdi_options) .ne. ' ' ) THEN
+          CALL MDI_Init(mdi_options, world_comm, mdi_ierr)
+       END IF
     END IF
     !>>>
     !

@@ -43,7 +43,7 @@ MODULE mp_global
 CONTAINS
   !
   !-----------------------------------------------------------------------
-  SUBROUTINE mp_startup ( my_world_comm, start_images, diag_in_band_group, what_band_group )
+  SUBROUTINE mp_startup ( my_world_comm, start_images, diag_in_band_group, what_band_group, mdi_initialization )
     !-----------------------------------------------------------------------
     ! ... This wrapper subroutine initializes all parallelization levels.
     ! ... If option with_images=.true., processes are organized into images,
@@ -65,6 +65,7 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: start_images
     LOGICAL, INTENT(IN), OPTIONAL :: diag_in_band_group
     INTEGER, INTENT(IN), OPTIONAL :: what_band_group
+    CHARACTER(len=1024), INTENT(IN), OPTIONAL :: mdi_initialization
     LOGICAL :: do_images
     LOGICAL :: do_diag_in_band
     INTEGER :: my_comm
@@ -79,7 +80,7 @@ CONTAINS
        what_band_group_ = what_band_group
     END IF
     !
-    CALL mp_world_start( my_comm )
+    CALL mp_world_start( my_comm, mdi_initialization )
     CALL get_command_line ( )
     !
     do_images = .FALSE.

@@ -60,13 +60,16 @@ PROGRAM pwscf
   !! Get the MDI options
   CHARACTER(len=1024) :: get_mdi_options
   !
-  CALL mp_startup ( start_images=.true., diag_in_band_group = .true. )
+  !<<<
+  mdi_options = get_mdi_options ( )
+  CALL mp_startup ( start_images=.true., diag_in_band_group = .true., &
+       mdi_initialization = mdi_options )
+  !>>>
   CALL environment_start ( 'PWSCF' )
   !
   ! ... Check if running standalone or in "driver" mode
   !
   srvaddress = get_server_address ( command_line ) 
-  mdi_options = get_mdi_options ( command_line )
   !
   ! ... Check if running standalone or in "manypw" mode
   !
