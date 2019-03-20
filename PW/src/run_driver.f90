@@ -38,8 +38,8 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   !<<<
   USE mdi,              ONLY : MDI_Send, MDI_Recv, MDI_Recv_Command, &
                                MDI_Accept_Communicator, &
-                               MDI_CHAR, MDI_DOUBLE, MDI_INT, MDI_NAME_LENGTH
-  USE command_line_options, ONLY : command_line
+                               MDI_CHAR, MDI_DOUBLE, MDI_INT
+  !USE command_line_options, ONLY : command_line
   !>>>
   !
   IMPLICIT NONE
@@ -61,7 +61,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   REAL*8 :: dist_ang(6), dist_ang_reset(6)
   !<<<
   LOGICAL :: is_mdi = .false.
-  CHARACTER(len=MDI_NAME_LENGTH) :: mdi_name
+  CHARACTER(len=1024) :: mdi_options
   INTEGER :: ierr
   !>>>
   !----------------------------------------------------------------------------
@@ -112,9 +112,9 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   CALL init_run()
   !<<<
   !
-  mdi_name = get_mdi_name( command_line )
-  IF ( .not. trim(mdi_name) == ' ' ) is_mdi = .true.
-  WRITE(6,*)'MDI name: ',mdi_name
+  mdi_options = get_mdi_options_subroutine( )
+  IF ( .not. trim(mdi_options) == ' ' ) is_mdi = .true.
+  WRITE(6,*)'MDI options: ',mdi_options
   WRITE(6,*)'is_mdi: ',is_mdi
   WRITE(6,*)'Calling create socket'
   IF (is_mdi) THEN
@@ -180,8 +180,6 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         CALL set_replica_id()
         isinit=.true.
         !
-     CASE( "<NAME" )
-        IF (ionode) CALL MDI_Send( mdi_name, MDI_NAME_LENGTH, MDI_CHAR, socket, ierr )
      CASE( ">NATOMS" )
         CALL set_nat()
         !
@@ -763,49 +761,51 @@ CONTAINS
   END SUBROUTINE
 !<<<
   !
-  FUNCTION get_mdi_name ( command_line ) RESULT ( name )
+  FUNCTION get_mdi_options_subroutine ( ) RESULT ( options )
     ! 
     ! checks for the presence of a command-line option of the form
-    ! -mdi_name "name" or --mdi_name "name";
-    ! returns "name", used to run pw.x in driver mode.
-    ! On input, "command_line" must contain the unprocessed part of the command
+    ! -mdi "options" or --mdi "options";
+    ! returns "options", used to run pw.x in driver mode.
+    ! On input, "commmand_line" must contain the unprocessed part of the command
     ! line, on all processors, as returned after a call to "get_cammand_line"
     !
     USE command_line_options, ONLY : my_iargc, my_getarg
     IMPLICIT NONE
-    CHARACTER(LEN=*), INTENT(IN) :: command_line
-    CHARACTER(LEN=256) :: name
+    !CHARACTER(LEN=*), INTENT(IN) :: command_line
+    CHARACTER(LEN=1024) :: options
     !
     INTEGER  :: nargs, narg
-    CHARACTER (len=320) :: arg
+    CHARACTER (len=1024) :: arg
     !
-    name = ' '
-    IF ( command_line == ' ' ) RETURN
+    nargs = command_argument_count()
+    options = ' '
+    !IF ( command_line == ' ' ) RETURN
     !
-    nargs = my_iargc ( command_line )
+    !nargs = my_iargc ( command_line )
     !
     narg = 0
 10  CONTINUE
-    CALL my_getarg ( command_line, narg, arg )
-    IF ( TRIM (arg) == '-mdi_name' .OR. TRIM (arg) == '--mdi_name' ) THEN
-       IF ( name == ' ' ) THEN
+    CALL get_command_argument(narg, arg)
+    !CALL my_getarg ( command_line, narg, arg )
+    IF ( TRIM (arg) == '-mdi' .OR. TRIM (arg) == '--mdi' ) THEN
+       IF ( options == ' ' ) THEN
           narg = narg + 1
           IF ( narg > nargs ) THEN
-             CALL infomsg('get_mdi_name','missing MDI name in command line')
+             CALL infomsg('get_server_address','missing server IP in command line')
              RETURN
           ELSE
-             CALL my_getarg ( command_line, narg, name )
+             CALL get_command_argument(narg, options)
+             !CALL my_getarg ( command_line, narg, options )
           END IF
        ELSE
-          CALL infomsg('get_mdi_name','duplicated MDI name in command line')
+          CALL infomsg('get_server_address','duplicated server IP in command line')
        END IF
     END IF
     narg = narg + 1
     IF ( narg > nargs ) RETURN
     GO TO 10
     !
-  END FUNCTION get_mdi_name
-!
+  END FUNCTION get_mdi_options_subroutine
 !>>>
 !
 END SUBROUTINE run_driver
