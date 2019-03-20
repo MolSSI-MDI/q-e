@@ -8,7 +8,7 @@ MODFLAGS= $(BASEMOD_FLAGS) \
 QEMODS = ../../Modules/libqemod.a ../../FFTXlib/libqefft.a \
          ../../KS_Solvers/libks_solvers.a \
          ../../LAXlib/libqela.a ../../UtilXlib/libutil.a \
-         ../../mdi/build/molssi_driver_interface/libmdi.a
+         ../../mdi/build/MDI_Library/libmdi.a
 PWOBJS = ../src/libpw.a
 
 TLDEPS= pwlibs
