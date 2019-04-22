@@ -1,23 +1,9 @@
 var searchData=
 [
-  ['mdi',['mdi',['../namespacemolssi__driver__interface_1_1mdi.html',1,'molssi_driver_interface']]],
-  ['mdi_2ec',['mdi.c',['../mdi_8c.html',1,'']]],
-  ['mdi_5faccept_5fcommunicator',['MDI_Accept_Communicator',['../mdi_8c.html#a570557fdd42049c5e285faf546037531',1,'MDI_Accept_Communicator():&#160;mdi.c'],['../namespacemolssi__driver__interface_1_1mdi.html#ab81f0bee8f7e5264402a96b8009a7cc6',1,'molssi_driver_interface.mdi.MDI_Accept_Communicator()']]],
-  ['mdi_5faccept_5fcommunicator_5f',['MDI_Accept_Communicator_',['../interfacemdi_1_1MDI__Accept__Communicator__.html',1,'mdi']]],
-  ['mdi_5fconversion_5ffactor',['MDI_Conversion_Factor',['../mdi_8c.html#a886c1af1124f55d869a6f2b80a68c5a7',1,'mdi.c']]],
-  ['mdi_5fconversion_5ffactor_5f',['MDI_Conversion_Factor_',['../interfacemdi_1_1MDI__Conversion__Factor__.html',1,'mdi']]],
-  ['mdi_5finit',['MDI_Init',['../mdi_8c.html#ae05ae377fa8de592f62c696c041b7d0a',1,'mdi.c']]],
-  ['mdi_5finit_5f',['MDI_Init_',['../interfacemdi_1_1MDI__Init__.html',1,'mdi']]],
-  ['mdi_5fmanager_2ec',['mdi_manager.c',['../mdi__manager_8c.html',1,'']]],
-  ['mdi_5fmanager_2eh',['mdi_manager.h',['../mdi__manager_8h.html',1,'']]],
-  ['mdi_5frecv',['mdi_recv',['../interfacemdi_1_1mdi__recv.html',1,'mdi::mdi_recv'],['../mdi_8c.html#ab73f32323a155011fcc184866215ba03',1,'MDI_Recv():&#160;mdi.c']]],
-  ['mdi_5frecv_5f',['MDI_Recv_',['../interfacemdi_1_1MDI__Recv__.html',1,'mdi']]],
-  ['mdi_5frecv_5fcommand',['MDI_Recv_Command',['../mdi_8c.html#ab03c0ea8beda690d6f796d3089cbfe15',1,'mdi.c']]],
-  ['mdi_5frecv_5fcommand_5f',['MDI_Recv_Command_',['../interfacemdi_1_1MDI__Recv__Command__.html',1,'mdi']]],
-  ['mdi_5fsend',['mdi_send',['../interfacemdi_1_1mdi__send.html',1,'mdi::mdi_send'],['../mdi_8c.html#a7bebce6d5fa91ee99a34fdcc5dcaedea',1,'MDI_Send():&#160;mdi.c']]],
-  ['mdi_5fsend_5f',['MDI_Send_',['../interfacemdi_1_1MDI__Send__.html',1,'mdi']]],
-  ['mdi_5fsend_5fcommand',['MDI_Send_Command',['../mdi_8c.html#a77e579331a36c3f0eb7f7ff9668e789d',1,'mdi.c']]],
-  ['mdi_5fsend_5fcommand_5f',['MDI_Send_Command_',['../interfacemdi_1_1MDI__Send__Command__.html',1,'mdi']]],
-  ['method_2ec',['method.c',['../method_8c.html',1,'']]],
-  ['method_2eh',['method.h',['../method_8h.html',1,'']]]
+  ['general_5faccept_5fcommunicator',['general_accept_communicator',['../mdi__general_8c.html#a29ba5cd8b9eb5fc5e1fcbe3576333dec',1,'general_accept_communicator():&#160;mdi_general.c'],['../mdi__general_8h.html#a29ba5cd8b9eb5fc5e1fcbe3576333dec',1,'general_accept_communicator():&#160;mdi_general.c']]],
+  ['general_5finit',['general_init',['../mdi__general_8c.html#af2f6b0553a53f438a26b5d4d094007a8',1,'general_init(const char *options, void *world_comm):&#160;mdi_general.c'],['../mdi__general_8h.html#af2f6b0553a53f438a26b5d4d094007a8',1,'general_init(const char *options, void *world_comm):&#160;mdi_general.c']]],
+  ['general_5frecv',['general_recv',['../mdi__general_8c.html#a4eef11edcab5763b906eb5ee84c7ed0c',1,'general_recv(void *buf, int count, MDI_Datatype datatype, MDI_Comm comm):&#160;mdi_general.c'],['../mdi__general_8h.html#a4eef11edcab5763b906eb5ee84c7ed0c',1,'general_recv(void *buf, int count, MDI_Datatype datatype, MDI_Comm comm):&#160;mdi_general.c']]],
+  ['general_5frecv_5fcommand',['general_recv_command',['../mdi__general_8c.html#aeeda32ecb1993508a73a5ad56a0df791',1,'general_recv_command(char *buf, MDI_Comm comm):&#160;mdi_general.c'],['../mdi__general_8h.html#aeeda32ecb1993508a73a5ad56a0df791',1,'general_recv_command(char *buf, MDI_Comm comm):&#160;mdi_general.c']]],
+  ['general_5fsend',['general_send',['../mdi__general_8c.html#a4df1892a55f407c2620357941c60bc03',1,'general_send(const void *buf, int count, MDI_Datatype datatype, MDI_Comm comm):&#160;mdi_general.c'],['../mdi__general_8h.html#a4df1892a55f407c2620357941c60bc03',1,'general_send(const void *buf, int count, MDI_Datatype datatype, MDI_Comm comm):&#160;mdi_general.c']]],
+  ['general_5fsend_5fcommand',['general_send_command',['../mdi__general_8c.html#ac26eef55a46e5a5da1f7a32be5d7bd0f',1,'general_send_command(const char *buf, MDI_Comm comm):&#160;mdi_general.c'],['../mdi__general_8h.html#ac26eef55a46e5a5da1f7a32be5d7bd0f',1,'general_send_command(const char *buf, MDI_Comm comm):&#160;mdi_general.c']]]
 ];
