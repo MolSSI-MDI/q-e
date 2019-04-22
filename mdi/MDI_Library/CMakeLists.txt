@@ -21,12 +21,14 @@ endif()
 
 #construct the list of source files
 list(APPEND sources "mdi.c")
-list(APPEND sources "communicator.h")
-list(APPEND sources "communicator.c")
-list(APPEND sources "mdi_manager.h")
-list(APPEND sources "mdi_manager.c")
-list(APPEND sources "method.h")
-list(APPEND sources "method.c")
+list(APPEND sources "mdi_global.h")
+list(APPEND sources "mdi_global.c")
+list(APPEND sources "mdi_general.h")
+list(APPEND sources "mdi_general.c")
+list(APPEND sources "mdi_mpi.h")
+list(APPEND sources "mdi_mpi.c")
+list(APPEND sources "mdi_tcp.h")
+list(APPEND sources "mdi_tcp.c")
 if( mpi STREQUAL "OFF" )
    list(APPEND sources "${CMAKE_CURRENT_SOURCE_DIR}/STUBS_MPI/mpi.h")
 endif()
@@ -36,6 +38,11 @@ endif()
 
 add_library(mdi ${libtype}
                 ${sources})
+
+#if this is a Windows build, link to ws2_32
+if(WIN32)
+  target_link_libraries(mdi wsock32 ws2_32)
+endif()
 
 #include and link to MPI
 if( mpi STREQUAL "ON" )
