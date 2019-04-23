@@ -1064,7 +1064,7 @@ END SUBROUTINE qmmm_minimum_image
         !
         !!!! Note, not used if ec_alg is false. Optimize excluding this send as well
         buf=RESHAPE(force_mm, (/ 3 * nat_mm /) ) * 0.5   ! force in a.u.
-        IF ( ionode ) CALL MDI_Send( buf, 3*nat_qm, MDI_DOUBLE, sockfd, ierr )
+        IF ( ionode ) CALL MDI_Send( buf, 3*nat_mm, MDI_DOUBLE, sockfd, ierr )
     END IF
 
   END SUBROUTINE write_mm_force
