@@ -15,6 +15,11 @@ MODULE qmmm
   USE kinds,            ONLY : DP
   USE f90sockets,       ONLY : readbuffer, writebuffer
   USE parallel_include
+  !<<<
+  USE mdi,              ONLY : MDI_Send, MDI_Recv, MDI_Recv_Command, &
+                               MDI_Accept_Communicator, &
+                               MDI_CHAR, MDI_DOUBLE, MDI_INT
+  !>>>
   IMPLICIT NONE
   !
   SAVE
@@ -854,13 +859,13 @@ END SUBROUTINE qmmm_minimum_image
   !
   SUBROUTINE read_mm_charge(socketfd)
     INTEGER, INTENT(IN) :: socketfd
-    INTEGER :: i
+    INTEGER :: i, ierr
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM charges"
     !
     ! ... Read the dimensions of the MM cell
     !
-    IF ( ionode ) CALL readbuffer(socketfd, charge_mm, nat_mm)
+    IF ( ionode ) CALL MDI_Recv( charge_mm, nat_mm, MDI_DOUBLE, socketfd, ierr )
     !
 #if defined(__MPI)
     CALL mp_bcast(charge_mm, ionode_id, world_comm)
@@ -887,12 +892,13 @@ END SUBROUTINE qmmm_minimum_image
   !
   SUBROUTINE read_mm_mask(socketfd)
     INTEGER, INTENT(IN) :: socketfd
+    INTEGER :: ierr
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM mask"
     !
     ! ... Read the dimensions of the MM cell
     !
-    IF ( ionode ) CALL readbuffer(socketfd, tau_mask, nat_mm)
+    IF ( ionode ) CALL MDI_Recv( tau_mask, nat_mm, MDI_INT, socketfd, ierr )
     !
 #if defined(__MPI)
     CALL mp_bcast(tau_mask, ionode_id, world_comm)
@@ -904,13 +910,14 @@ END SUBROUTINE qmmm_minimum_image
   SUBROUTINE read_mm_coord(socketfd)
     USE cell_base, ONLY : alat
     INTEGER, INTENT(IN) :: socketfd
+    INTEGER :: ierr
     REAL(DP) :: buf(3*nat_mm)
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM coordinates"
     !
     ! ... Read the dimensions of the MM cell
     !
-    IF ( ionode ) CALL readbuffer(socketfd, buf, 3*nat_mm)
+    IF ( ionode ) CALL MDI_Recv( buf, 3*nat_mm, MDI_DOUBLE, socketfd, ierr )
     tau_mm = RESHAPE(buf, (/3,nat_mm/))
     !
     tau_mm = tau_mm / alat ! internally positions are in alat
@@ -924,12 +931,13 @@ END SUBROUTINE qmmm_minimum_image
   !
   SUBROUTINE read_types(socketfd)
     INTEGER, INTENT(IN) :: socketfd
+    INTEGER :: ierr
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM types"
     !
     ! ... Read the dimensions of the MM cell
     !
-    IF ( ionode ) CALL readbuffer(socketfd, types, nat_mm)
+    IF ( ionode ) CALL MDI_Recv( types, nat_mm, MDI_INT, socketfd, ierr )
     !
 #if defined(__MPI)
     CALL mp_bcast(types, ionode_id, world_comm)
@@ -942,6 +950,7 @@ END SUBROUTINE qmmm_minimum_image
     USE cell_base, ONLY : alat
     USE constants, ONLY : bohr_radius_angs
     INTEGER, INTENT(IN) :: socketfd
+    INTEGER :: ierr
     INTERFACE
        SUBROUTINE ec_fill_radii ( aradii, nat_mm, mass, types, ntypes, flag ) &
             BIND(C,name="ec_fill_radii")
@@ -957,7 +966,7 @@ END SUBROUTINE qmmm_minimum_image
     !
     ! ... Read the dimensions of the MM cell
     !
-    IF ( ionode ) CALL readbuffer(socketfd, mass, ntypes+1)
+    IF ( ionode ) CALL MDI_Recv( mass, ntypes+1, MDI_DOUBLE, socketfd, ierr )
     !
 #if defined(__MPI)
     CALL mp_bcast(mass, ionode_id, world_comm)
@@ -985,12 +994,13 @@ END SUBROUTINE qmmm_minimum_image
     USE cell_base, ONLY : alat
     USE constants, ONLY : bohr_radius_angs
     INTEGER, INTENT(IN) :: socketfd
+    INTEGER :: ierr
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM aradii"
     !
     ! ... Read the dimensions of the MM cell
     !
-    IF ( ionode ) CALL readbuffer(socketfd, aradii, nat_mm)
+    IF ( ionode ) CALL MDI_Recv( aradii, nat_mm, MDI_DOUBLE, socketfd, ierr )
     !
 #if defined(__MPI)
     CALL mp_bcast(aradii, ionode_id, world_comm)
@@ -1009,6 +1019,7 @@ END SUBROUTINE qmmm_minimum_image
     !
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: sockfd
+    INTEGER :: ierr
     REAL(DP) :: buf(3*nat_qm)
     
 
@@ -1020,7 +1031,7 @@ END SUBROUTINE qmmm_minimum_image
         !
         buf=RESHAPE(force_qm, (/ 3 * nat_qm /) ) * 0.5   ! force in a.u.
         !
-        CALL writebuffer(sockfd, buf, 3*nat_qm)
+        IF ( ionode ) CALL MDI_Send( buf, 3*nat_qm, MDI_DOUBLE, sockfd, ierr )
         !
     END IF
 
@@ -1034,6 +1045,7 @@ END SUBROUTINE qmmm_minimum_image
     USE fft_types,          ONLY : fft_type_descriptor
     IMPLICIT NONE
     INTEGER, INTENT(IN) :: sockfd
+    INTEGER :: ierr
     REAL(DP) :: rho(:,:)
     INTEGER  :: nspin
     TYPE(fft_type_descriptor) :: dfftp
@@ -1052,7 +1064,7 @@ END SUBROUTINE qmmm_minimum_image
         !
         !!!! Note, not used if ec_alg is false. Optimize excluding this send as well
         buf=RESHAPE(force_mm, (/ 3 * nat_mm /) ) * 0.5   ! force in a.u.
-        CALL writebuffer(sockfd, buf, 3*nat_mm)
+        IF ( ionode ) CALL MDI_Send( buf, 3*nat_qm, MDI_DOUBLE, sockfd, ierr )
     END IF
 
   END SUBROUTINE write_mm_force
