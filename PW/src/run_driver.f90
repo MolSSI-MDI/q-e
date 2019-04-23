@@ -246,6 +246,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         !
      !>>>
      CASE DEFAULT
+        IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Unrecognized command: ",trim(header)
         exit_status = 130
         RETURN
      END SELECT
