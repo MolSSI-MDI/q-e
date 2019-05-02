@@ -31,7 +31,8 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
                                read_mm_charge, read_mm_mask, read_mm_coord, &
                                read_types, read_mass, write_ec_force, &
                                write_mm_force, qmmm_center_molecule, &
-                               qmmm_minimum_image, read_aradii
+                               qmmm_minimum_image, read_aradii, send_ndensity, &
+                               send_cdensity, send_density
   USE scf,              ONLY : rho
   USE lsda_mod,         ONLY : nspin
   USE fft_base,         ONLY : dfftp
@@ -239,6 +240,15 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         !
      CASE( "<MM_FORCES" )
         CALL write_mm_force(socket, rho%of_r, nspin, dfftp)
+        !
+     CASE( "<NDENSITY" )
+        CALL send_ndensity(socket, dfftp)
+        !
+     CASE( "<CDENSITY" )
+        CALL send_cdensity(socket, dfftp)
+        !
+     CASE( "<DENSITY" )
+        CALL send_density(socket, rho%of_r, nspin, dfftp)
         !
      CASE( "EXIT" )
         exit_status = 0

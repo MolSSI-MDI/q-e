@@ -85,7 +85,7 @@ MODULE qmmm
   PUBLIC :: set_mm_natoms, set_qm_natoms, set_ntypes, set_cell_mm, read_mm_charge
   PUBLIC :: read_mm_mask, read_mm_coord, read_types, read_mass, write_ec_force
   PUBLIC :: write_mm_force, qmmm_center_molecule, qmmm_minimum_image
-  PUBLIC :: read_aradii
+  PUBLIC :: read_aradii, send_ndensity, send_cdensity, send_density
 
 CONTAINS
 
@@ -794,6 +794,12 @@ END SUBROUTINE qmmm_minimum_image
                          4.d0*(dist**3)*( rc_mm(i_mm)**5 - dist**5 ) ) / & 
                             ( ( rc_mm(i_mm)**5 - dist**5 )**2 )
              !
+             !<<<
+             IF ( i_mm.eq.1 and ir.eq.1) THEN
+                !WRITE(6,*)'   COMP: ',ir,dist*alat,fder/(alat*alat)
+                WRITE(6,*)'   COMP: ',ir,rho(ir,is),fder/(alat*alat)
+             END IF
+             !>>>
              DO ipol = 1,3
                 force_mm(ipol,i_mm) = force_mm(ipol,i_mm) +  &
                         rho(ir,is)*fder*(tau_mm(ipol, i_mm)-r(ipol))/dist
@@ -808,6 +814,12 @@ END SUBROUTINE qmmm_minimum_image
     END DO
     ! 
     CALL mp_sum(force_mm, intra_pool_comm)
+    !<<<
+    WRITE(6,*)'FORCE_MM: ',alat
+    DO i_mm = 1, nat_mm
+       WRITE(6,*)i_mm,force_mm(1,i_mm)/(alat*alat),force_mm(2,i_mm)/(alat*alat),force_mm(3,i_mm)/(alat*alat)
+    END DO
+    !>>>
     !
     force_mm(:,:) = e2*force_mm(:,:)*omega/(dfftp%nr1*dfftp%nr2*dfftp%nr3)
 
@@ -1069,6 +1081,250 @@ END SUBROUTINE qmmm_minimum_image
 
   END SUBROUTINE write_mm_force
 
+  !---------------------------------------------------------------------!
+  ! send the number of grid points used to represent the density
+  !
+  SUBROUTINE send_ndensity( sockfd, dfftp )
+    USE fft_types,          ONLY : fft_type_descriptor
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: sockfd
+    TYPE(fft_type_descriptor) :: dfftp
+    INTEGER :: ierr
+    !
+    INTEGER :: idx, i, j, k, j0, k0
+    INTEGER :: ir
+    INTEGER :: ngrid
+    !
+    ngrid = 0
+    !
+    j0 = dfftp%my_i0r2p ; k0 = dfftp%my_i0r3p
+    !
+    DO ir = 1, dfftp%nnr
+       idx = ir -1
+       k   = idx / (dfftp%nr1x * dfftp%my_nr2p )
+       idx = idx - (dfftp%nr1x * dfftp%my_nr2p ) * k
+       k   = k + k0
+       IF ( k .GE. dfftp%nr3 ) CYCLE
+       j   = idx / dfftp%nr1x
+       idx = idx - dfftp%nr1x*j
+       j   = j + j0
+       IF ( j .GE. dfftp%nr2 ) CYCLE
+       i   = idx
+       IF ( i .GE. dfftp%nr1 ) CYCLE
+       ngrid = ngrid + 1
+    END DO
+    !
+    CALL mp_sum(ngrid, intra_pool_comm)
+    !
+    IF ( ionode ) CALL MDI_Send( ngrid, 1, MDI_INT, sockfd, ierr )
+    !
+  END SUBROUTINE send_ndensity
+
+  !---------------------------------------------------------------------!
+  ! send the coordinates of the grid points used to represent the density
+  !
+  SUBROUTINE send_cdensity( sockfd, dfftp )
+    USE fft_types,          ONLY : fft_type_descriptor
+    USE cell_base,          ONLY : at, alat
+    USE mp,                 ONLY : mp_gather, mp_gather
+    USE mp_pools,           ONLY : intra_pool_comm, npool, nproc_pool, me_pool
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: sockfd
+    TYPE(fft_type_descriptor) :: dfftp
+    INTEGER :: ierr
+    !
+    INTEGER :: idx, i, j, k, j0, k0
+    INTEGER :: ir
+    INTEGER :: ngrid, igrid, mygrid
+    REAL(DP) :: s(3),r(3)
+    REAL(DP), ALLOCATABLE :: cdensity(:), cdensity_all(:)
+    !
+    INTEGER :: mygrid_all(nproc_pool)
+    INTEGER :: mygrid_displ(nproc_pool)
+    !
+    mygrid = 0
+    !
+    j0 = dfftp%my_i0r2p ; k0 = dfftp%my_i0r3p
+    !
+    ! get the number of grid points
+    DO ir = 1, dfftp%nnr
+       idx = ir -1
+       k   = idx / (dfftp%nr1x * dfftp%my_nr2p )
+       idx = idx - (dfftp%nr1x * dfftp%my_nr2p ) * k
+       k   = k + k0
+       IF ( k .GE. dfftp%nr3 ) CYCLE
+       j   = idx / dfftp%nr1x
+       idx = idx - dfftp%nr1x*j
+       j   = j + j0
+       IF ( j .GE. dfftp%nr2 ) CYCLE
+       i   = idx
+       IF ( i .GE. dfftp%nr1 ) CYCLE
+       mygrid = mygrid + 1
+    END DO
+    !
+    ! determine the number of grid points on each process
+    CALL mp_gather(mygrid, mygrid_all, 0, intra_pool_comm)
+    CALL mp_bcast(mygrid_all, 0, intra_pool_comm)
+    DO ir = 1, nproc_pool
+       if(ionode)WRITE(6,*)'   NGRID: ',ir,mygrid_all(ir)
+    END DO
+    !
+    ngrid = mygrid
+    CALL mp_sum(ngrid, intra_pool_comm)
+    !
+    ! construct the array of grid coordinates
+    ALLOCATE( cdensity( 3*mygrid ) )
+    IF ( me_pool .EQ. 0 ) ALLOCATE( cdensity_all( 3*ngrid ) )
+    igrid = 1
+    DO ir = 1, dfftp%nnr
+       idx = ir -1
+       k   = idx / (dfftp%nr1x * dfftp%my_nr2p )
+       idx = idx - (dfftp%nr1x * dfftp%my_nr2p ) * k
+       k   = k + k0
+       IF ( k .GE. dfftp%nr3 ) CYCLE
+       j   = idx / dfftp%nr1x
+       idx = idx - dfftp%nr1x*j
+       j   = j + j0
+       IF ( j .GE. dfftp%nr2 ) CYCLE
+       i   = idx
+       IF ( i .GE. dfftp%nr1 ) CYCLE
+       !
+       s(1) = DBLE(i)/DBLE(dfftp%nr1)
+       s(2) = DBLE(j)/DBLE(dfftp%nr2)
+       s(3) = DBLE(k)/DBLE(dfftp%nr3)
+       !
+       r=matmul(at,s)
+       !
+       cdensity( 3*(igrid-1) + 1 ) = r(1)*alat
+       cdensity( 3*(igrid-1) + 2 ) = r(2)*alat
+       cdensity( 3*(igrid-1) + 3 ) = r(3)*alat
+       !
+       igrid = igrid + 1
+       !
+    END DO
+    !
+    ! gather the grid coordinates across all processes
+    !
+    mygrid_displ(1) = 0
+    DO ir = 2, nproc_pool
+       mygrid_displ(ir) = mygrid_displ(ir-1) + 3*mygrid_all(ir-1)
+    END DO
+    !DO ir = 1, nproc_pool
+    !   WRITE(6,*)'   DISPL: ',ir,mygrid_displ(ir)
+    !END DO
+    CALL mp_gather(cdensity, cdensity_all, 3*mygrid_all, mygrid_displ, 0, intra_pool_comm)
+    !IF ( ionode ) THEN
+    !   DO ir = 1, ngrid
+    !      WRITE(6,*)'CDEN: ',ir,cdensity_all(ir)
+    !   END DO
+    !END IF
+    !
+    IF ( ionode ) CALL MDI_Send( cdensity_all, 3*ngrid, MDI_DOUBLE, sockfd, ierr )
+    DEALLOCATE( cdensity )
+    IF ( me_pool .EQ. 0 ) DEALLOCATE( cdensity_all )
+    !
+  END SUBROUTINE send_cdensity
+
+
+  SUBROUTINE send_density( sockfd, rho, nspin, dfftp )
+    USE fft_types,          ONLY : fft_type_descriptor
+    USE cell_base,          ONLY : at, alat
+    USE mp,                 ONLY : mp_gather, mp_gather
+    USE mp_pools,           ONLY : intra_pool_comm, npool, nproc_pool, me_pool
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: sockfd
+    REAL(DP) :: rho(:,:)
+    INTEGER  :: nspin
+    TYPE(fft_type_descriptor) :: dfftp
+    INTEGER :: ierr
+    !
+    INTEGER :: idx, i, j, k, j0, k0
+    INTEGER :: ir, ispin
+    INTEGER :: ngrid, igrid, mygrid
+    REAL(DP) :: s(3),r(3)
+    REAL(DP), ALLOCATABLE :: density(:), density_all(:)
+    !
+    INTEGER :: mygrid_all(nproc_pool)
+    INTEGER :: mygrid_displ(nproc_pool)
+    !
+    WRITE(6,*)'START OF SEND_DENSITY'
+    mygrid = 0
+    !
+    j0 = dfftp%my_i0r2p ; k0 = dfftp%my_i0r3p
+    !
+    ! get the number of grid points
+    DO ir = 1, dfftp%nnr
+       idx = ir -1
+       k   = idx / (dfftp%nr1x * dfftp%my_nr2p )
+       idx = idx - (dfftp%nr1x * dfftp%my_nr2p ) * k
+       k   = k + k0
+       IF ( k .GE. dfftp%nr3 ) CYCLE
+       j   = idx / dfftp%nr1x
+       idx = idx - dfftp%nr1x*j
+       j   = j + j0
+       IF ( j .GE. dfftp%nr2 ) CYCLE
+       i   = idx
+       IF ( i .GE. dfftp%nr1 ) CYCLE
+       mygrid = mygrid + 1
+    END DO
+    !
+    ! determine the number of grid points on each process
+    CALL mp_gather(mygrid, mygrid_all, 0, intra_pool_comm)
+    CALL mp_bcast(mygrid_all, 0, intra_pool_comm)
+    DO ir = 1, nproc_pool
+       if(ionode)WRITE(6,*)'   NGRID: ',ir,mygrid_all(ir)
+    END DO
+    !
+    ngrid = mygrid
+    CALL mp_sum(ngrid, intra_pool_comm)
+    !
+    ! construct the array of grid coordinates
+    ALLOCATE( density( mygrid ) )
+    IF ( me_pool .EQ. 0 ) ALLOCATE( density_all( ngrid ) )
+    igrid = 1
+    DO ir = 1, dfftp%nnr
+       idx = ir -1
+       k   = idx / (dfftp%nr1x * dfftp%my_nr2p )
+       idx = idx - (dfftp%nr1x * dfftp%my_nr2p ) * k
+       k   = k + k0
+       IF ( k .GE. dfftp%nr3 ) CYCLE
+       j   = idx / dfftp%nr1x
+       idx = idx - dfftp%nr1x*j
+       j   = j + j0
+       IF ( j .GE. dfftp%nr2 ) CYCLE
+       i   = idx
+       IF ( i .GE. dfftp%nr1 ) CYCLE
+       !
+       !s(1) = DBLE(i)/DBLE(dfftp%nr1)
+       !s(2) = DBLE(j)/DBLE(dfftp%nr2)
+       !s(3) = DBLE(k)/DBLE(dfftp%nr3)
+       !
+       !r=matmul(at,s)
+       !
+       !density( igrid ) = r(1)*alat
+       density( igrid ) = 0.0_DP
+       DO ispin = 1, nspin
+          density( igrid ) = density( igrid ) + rho( ir, ispin )
+       END DO
+       !
+       igrid = igrid + 1
+       !
+    END DO
+    !
+    ! gather the grid coordinates across all processes
+    !
+    mygrid_displ(1) = 0
+    DO ir = 2, nproc_pool
+       mygrid_displ(ir) = mygrid_displ(ir-1) + mygrid_all(ir-1)
+    END DO
+    CALL mp_gather(density, density_all, mygrid_all, mygrid_displ, 0, intra_pool_comm)
+    !
+    WRITE(6,*)'@@@@@@@: ',ngrid
+    IF ( ionode ) CALL MDI_Send( density_all, ngrid, MDI_DOUBLE, sockfd, ierr )
+    DEALLOCATE( density )
+    IF ( me_pool .EQ. 0 ) DEALLOCATE( density_all )
+    !
+  END SUBROUTINE send_density
   !>>>
 
   !---------------------------------------------------------------------!
