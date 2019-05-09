@@ -1774,6 +1774,7 @@ setlocal.o : ../../Modules/fft_base.o
 setlocal.o : ../../Modules/io_global.o
 setlocal.o : ../../Modules/ions_base.o
 setlocal.o : ../../Modules/kind.o
+setlocal.o : ../../Modules/mdi_engine.o
 setlocal.o : ../../Modules/mp_bands.o
 setlocal.o : ../../Modules/qmmm.o
 setlocal.o : ../../Modules/recvec.o

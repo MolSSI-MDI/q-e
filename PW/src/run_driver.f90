@@ -40,6 +40,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   USE mdi,              ONLY : MDI_Send, MDI_Recv, MDI_Recv_Command, &
                                MDI_Accept_Communicator, &
                                MDI_CHAR, MDI_DOUBLE, MDI_INT
+  USE mdi_engine,       ONLY : is_mdi, recv_npotential, recv_potential
   !USE command_line_options, ONLY : command_line
   !>>>
   !
@@ -61,9 +62,10 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   REAL*8, ALLOCATABLE :: combuf(:)
   REAL*8 :: dist_ang(6), dist_ang_reset(6)
   !<<<
-  LOGICAL :: is_mdi = .false.
+  !LOGICAL :: is_mdi = .false.
   CHARACTER(len=1024) :: mdi_options
   INTEGER :: ierr
+
   !>>>
   !----------------------------------------------------------------------------
   !
@@ -194,8 +196,14 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         CALL read_cell()
         CALL update_cell()
         !
+     CASE( "<CELL" )
+        CALL send_cell()
+        !
      CASE( ">COORDS" )
         CALL read_coordinates()
+        !
+     CASE( "<COORDS" )
+        CALL send_coordinates()
         !
      CASE( ">QMMM_MODE" )
         CALL read_qmmm_mode()
@@ -249,6 +257,15 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         !
      CASE( "<DENSITY" )
         CALL send_density(socket, rho%of_r, nspin, dfftp)
+        !
+     CASE( "<CHARGES" )
+        CALL send_charges()
+        !
+     CASE( ">NPOTENTIAL" )
+        CALL recv_npotential(socket)
+        !
+     CASE( ">POTENTIAL" )
+        CALL recv_potential(socket)
         !
      CASE( "EXIT" )
         exit_status = 0
@@ -602,6 +619,27 @@ CONTAINS
   END SUBROUTINE read_cell
   !
   !
+  SUBROUTINE send_cell()
+    !
+    USE kinds,            ONLY : DP
+    !
+    REAL(DP) :: cell_mdi(12)
+    !
+    IF ( ionode ) THEN
+       !
+       cellh = at * alat
+       cellh = TRANSPOSE( cellh )
+       !
+       cell_mdi(1:9) = RESHAPE( cellh, (/9/))
+       cell_mdi(10:12) = 0.0_DP
+       !
+       CALL MDI_Send( cell_mdi, 12, MDI_DOUBLE, socket, ierr)
+       !
+    END IF
+    !
+  END SUBROUTINE send_cell
+  !
+  !
   SUBROUTINE update_cell()
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Updating cell "
@@ -653,6 +691,47 @@ CONTAINS
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: new coords ",tau
     !
   END SUBROUTINE read_coordinates
+  !
+  !
+  SUBROUTINE send_coordinates()
+    !
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Sending coordinates "
+    !
+    ! ... Convert the internal pwscf format to the MDI standard
+    !
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: old coords ",tau
+    combuf = RESHAPE( tau, (/ 3*nat /) )*alat
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: new coords ",combuf
+    !
+    ! ... Read the atoms coordinates and share them
+    !
+    IF ( ionode ) CALL MDI_Send( combuf, 3*nat, MDI_DOUBLE, socket, ierr )
+    !
+  END SUBROUTINE send_coordinates
+  !
+  !
+  SUBROUTINE send_charges()
+    !
+    USE kinds,            ONLY : DP
+    USE ions_base,        ONLY : zv, ityp
+    !
+    REAL(DP) :: charges(nat)
+    !
+    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Sending charges "
+    !
+    ! ... Send the charges of each ion
+    !
+    DO i=1, nat
+       charges(i) = zv(ityp(i))
+    END DO
+    IF ( ionode ) CALL MDI_Send( charges, nat, MDI_DOUBLE, socket, ierr )
+    !
+    WRITE(6,*)" @ DRIVER MODE: sent charges: "
+    DO i=1, nat
+       WRITE(6,*)i,charges(i)
+    END DO
+    !
+  END SUBROUTINE send_charges
   !NOTE:
   !ALSO NEED qm_charge, mm_charge_all, mm_coord_all, mm_mask_all, type, mass
   !
@@ -716,6 +795,8 @@ CONTAINS
     IF ( ionode ) CALL MDI_Send( combuf, 3*nat, MDI_DOUBLE, socket, ierr )
     !
   END SUBROUTINE write_forces
+  !
+  !
   !>>>
   !
   !

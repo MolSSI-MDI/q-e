@@ -46,6 +46,7 @@ kernel_table.o \
 kind.o \
 libxc.o \
 mdiis.o \
+mdi_engine.o \
 mm_dispersion.o \
 mp_bands.o \
 mp_exx.o \

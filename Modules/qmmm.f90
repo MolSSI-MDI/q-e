@@ -239,7 +239,13 @@ SUBROUTINE qmmm_minimum_image()
      s(3) = tau_mm(3,i) - qm_bc(3)
      !s(:) = matmul(s(:), 1/box)
      s(:) = s(:) / (alat_mm*at_mm(:)/alat)
+     !<<<
+     if (ionode) WRITE(6,*)'$$$1: ',i,s
+     !>>>
      s(:) = s(:) - anint(s(:))
+     !<<<
+     if (ionode) WRITE(6,*)'$$$2: ',i,s
+     !>>>
      s(:) = s(:) * (alat_mm*at_mm(:)/alat)
      tau_mm(1,i) = s(1) + qm_bc(1)
      tau_mm(2,i) = s(2) + qm_bc(2)
@@ -654,6 +660,7 @@ END SUBROUTINE qmmm_minimum_image
        ENDDO
        !
        ! Add the contribute
+       !WRITE(6,*)'PRETOT: ',ir,vltot(ir),esfcontrib
        vltot(ir) = vltot(ir) + esfcontrib
        esfcontrib_all(ir) = esfcontrib
        !
@@ -795,10 +802,10 @@ END SUBROUTINE qmmm_minimum_image
                             ( ( rc_mm(i_mm)**5 - dist**5 )**2 )
              !
              !<<<
-             IF ( i_mm.eq.1 and ir.eq.1) THEN
-                !WRITE(6,*)'   COMP: ',ir,dist*alat,fder/(alat*alat)
-                WRITE(6,*)'   COMP: ',ir,rho(ir,is),fder/(alat*alat)
-             END IF
+             !IF ( i_mm.eq.1 .and. ir.eq.1) THEN
+             !   !WRITE(6,*)'   COMP: ',ir,dist*alat,fder/(alat*alat)
+             !   WRITE(6,*)'   COMP: ',ir,rho(ir,is),fder/(alat*alat)
+             !END IF
              !>>>
              DO ipol = 1,3
                 force_mm(ipol,i_mm) = force_mm(ipol,i_mm) +  &
@@ -814,12 +821,6 @@ END SUBROUTINE qmmm_minimum_image
     END DO
     ! 
     CALL mp_sum(force_mm, intra_pool_comm)
-    !<<<
-    WRITE(6,*)'FORCE_MM: ',alat
-    DO i_mm = 1, nat_mm
-       WRITE(6,*)i_mm,force_mm(1,i_mm)/(alat*alat),force_mm(2,i_mm)/(alat*alat),force_mm(3,i_mm)/(alat*alat)
-    END DO
-    !>>>
     !
     force_mm(:,:) = e2*force_mm(:,:)*omega/(dfftp%nr1*dfftp%nr2*dfftp%nr3)
 
@@ -844,8 +845,17 @@ END SUBROUTINE qmmm_minimum_image
                  e2*charge_mm(i_mm)*zv(tau_mask(i_qm)) *       &
                  fder*(tau_mm(ipol, i_mm)-tau_mm(ipol, i_qm))/dist
           ENDDO
+          !<<<
+          WRITE(6,*)'COMP: ',i_mm,i_qm,dist*alat,fder/(alat**2),zv(tau_mask(i_qm))
+          !>>>
        ENDDO
     ENDDO
+    !<<<
+    WRITE(6,*)'FORCE_MM: ',alat
+    DO i_mm = 1, nat_mm
+       WRITE(6,*)i_mm,force_mm(1,i_mm)/(2.0_DP*alat**2),force_mm(2,i_mm)/(2.0_DP*alat**2),force_mm(3,i_mm)/(2.0_DP*alat**2)
+    END DO
+    !>>>
     force_mm(:,:)=force_mm(:,:)/(alat**2)
     !
     !write(stdout, *) "Forces added to MM atoms (Ry / a.u.)"
