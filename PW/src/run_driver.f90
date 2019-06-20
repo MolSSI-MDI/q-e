@@ -40,7 +40,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   USE mdi,              ONLY : MDI_Send, MDI_Recv, MDI_Recv_Command, &
                                MDI_Accept_Communicator, &
                                MDI_CHAR, MDI_DOUBLE, MDI_INT
-  USE mdi_engine,       ONLY : is_mdi, recv_npotential, recv_potential
+  USE mdi_engine,       ONLY : is_mdi, recv_npotential, recv_potential, mdi_forces
   !USE command_line_options, ONLY : command_line
   !>>>
   !
@@ -788,7 +788,7 @@ CONTAINS
     ! ... Converts forces to a.u.
     ! ... (so go from Ry to Ha)
     !
-    combuf=RESHAPE(force, (/ 3 * nat /) ) * 0.5   ! force in a.u.
+    combuf=RESHAPE(mdi_forces, (/ 3 * nat /) ) * 0.5   ! force in a.u.
     !
     ! ... Write the forces
     !

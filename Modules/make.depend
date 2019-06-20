@@ -169,6 +169,7 @@ lsda_functionals.o : kind.o
 mdi_engine.o : ../FFTXlib/fft_types.o
 mdi_engine.o : cell_base.o
 mdi_engine.o : io_global.o
+mdi_engine.o : ions_base.o
 mdi_engine.o : kind.o
 mdi_engine.o : mp_global.o
 mdi_engine.o : mp_pools.o

@@ -10,6 +10,7 @@ MODULE mdi_engine
   !==---------------------------------------------------------------------==!
   USE cell_base,        ONLY : alat
   USE io_global,        ONLY : ionode, ionode_id, stdout
+  USE ions_base,        ONLY : nat
   USE kinds,            ONLY : DP
   USE mdi,              ONLY : MDI_Send, MDI_Recv, MDI_Recv_Command, &
                                MDI_Accept_Communicator, &
@@ -36,9 +37,12 @@ MODULE mdi_engine
   ! External potential at each grid point
   REAL(DP), ALLOCATABLE :: potential(:)
   !
-  PUBLIC :: is_mdi
+  ! Forces used in response to the <FORCES command
+  REAL(DP), ALLOCATABLE :: mdi_forces(:,:)
+  !
+  PUBLIC :: is_mdi, mdi_forces
   PUBLIC :: recv_npotential, recv_potential
-  PUBLIC :: mdi_add_potential
+  PUBLIC :: mdi_add_potential, set_mdi_forces
   !
 CONTAINS
   !
@@ -202,5 +206,19 @@ CONTAINS
     RETURN
 
   END SUBROUTINE mdi_add_potential
+  !
+  SUBROUTINE set_mdi_forces( forces, ipol )
+    !
+    REAL(DP), INTENT(IN) :: forces(:,:)
+    INTEGER, INTENT(IN) :: ipol
+    INTEGER :: iatom
+    !
+    IF (.not.ALLOCATED(mdi_forces)) ALLOCATE(mdi_forces(3,nat))
+    !
+    DO iatom = 1, nat
+       mdi_forces(ipol,iatom) = forces(ipol,iatom)
+    END DO
+    !
+  END SUBROUTINE set_mdi_forces
   !
 END MODULE mdi_engine
