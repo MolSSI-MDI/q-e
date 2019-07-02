@@ -14,6 +14,8 @@ The MDI standard defines the \ref standard_units "units", data types, and format
 \section standard_units Units
 
 All physical quantities communicated through MDI must be expressed in atomic units.
+Whenever it is necessary to perform a unit conversion on data communicated through MDI, the conversion factor should be obtained through the MDI_Conversion_Factor() function.
+Use of this function ensures self-consistency in unit conversions between codes, which is important for avoiding numerical instabilities.
 
 
 
@@ -48,6 +50,8 @@ The following constants are defined by the MDI Standard and are accessible throu
   - \c MDI_INT - Data type identifier for integers
   - \c MDI_DOUBLE - Data type identifier for double precision floats
   - \c MDI_CHAR - Data type identifier for characters
+  - \c MDI_INT_NUMPY - Data type identifier for Python NumPy integer arrays
+  - \c MDI_DOUBLE_NUMPY - Data type identifier for Python NumPy double arrays
   - \c MDI_NAME_LENGTH - Maximum number of characters in the name of an MDI code (see \ref library_launching_sec) or node (see \ref standard_nodes_sec)
   - \c MDI_COMMAND_LENGTH - Maximum number of characters in an MDI command (see \ref command_list)
 
@@ -78,6 +82,18 @@ The engine sends the driver a string that corresponds to the name of its current
 
 
 
+\subsection recv_cdensity <CDENSITY
+
+The engine sends the Cartesian coordinates of a set of grid points.
+This command is intended to be used in conjuction with the \ref recv_ndensity and \ref recv_density commands; these three commands enable a driver to acquire the electronic density distribution of an engine in a grid representation.
+See the \ref recv_density command for more details.
+
+\par
+<b> Data Type: </b> \c MDI_DOUBLE <br>
+<b> Quantity: </b> <c> 3 * NDENSITY </c>
+
+
+
 \subsection set_cell >CELL
 
 The driver sends a set of cell vectors to the engine, which resizes its simulation cell to the dimensions specified by the cell vectors.
@@ -104,7 +120,7 @@ The driver sends a set of atomic charges to the engine, which replaces its atomi
 
 \par
 <b> Data Type: </b> \c MDI_DOUBLE <br>
-<b> Quantity: </b> \c <NATOMS <br>
+<b> Quantity: </b> \c NATOMS <br>
 <b> Format: </b> Sequentially ascending order of atomic index <br>
 
 
@@ -115,7 +131,7 @@ The engine sends a set of atomic charges to the driver, in the same format as sp
 
 \par
 <b> Data Type: </b> \c MDI_DOUBLE <br>
-<b> Quantity: </b> \c <NATOMS <br>
+<b> Quantity: </b> \c NATOMS <br>
 <b> Format: </b> Sequentially ascending order of atomic index
 
 
@@ -133,7 +149,7 @@ The driver sends a set of atomic coordinates to the engine, which replaces its a
 
 \par
 <b> Data Type: </b> \c MDI_DOUBLE <br>
-<b> Quantity: </b> <c> 3 * <NATOMS </c> <br>
+<b> Quantity: </b> <c> 3 * NATOMS </c> <br>
 <b> Format: </b> Sequentially ascending order of atomic index, with the coordinates for each individual atom being provided in xyz order <br>
 
 
@@ -144,8 +160,34 @@ The engine sends a set of atomic coordinates to the driver.
 
 \par
 <b> Data Type: </b> \c MDI_DOUBLE <br>
-<b> Quantity: </b> <c> 3 * <NATOMS </c> <br>
+<b> Quantity: </b> <c> 3 * NATOMS </c> <br>
 <b> Format: </b> Sequentially ascending order of atomic index, with the coordinates for each individual atom being provided in xyz order
+
+
+
+\subsection send_cpotential >CPOTENTIAL
+
+The driver sends the Cartesian coordinates of a set of grid points.
+This command is intended to be used in conjuction with the \ref send_npotential and \ref send_potential commands; these three commands enable a driver to set an external potential that is incorporated into a subsequent \ref scf_command command.
+See the \ref send_potential command for more details.
+
+Before sending this command, the driver must have first sent the number of grid points used to represent the potential via the \ref send_npotential command.
+It is also necessary that the driver send the values of the grid points via the \ref send_cpotential command prior to any subsequent \ref scf_command command.
+
+\par
+<b> Data Type: </b> \c MDI_DOUBLE <br>
+<b> Quantity: </b> <c> 3 * NPOTENTIAL </c>
+
+
+
+\subsection recv_density <DENSITY
+
+The engine sends the value of its electronic density on a set of grid points.
+This command is intended to be used in conjuction with the \ref recv_ndensity and \ref recv_cdensity commands; these three commands enable a driver to acquire the electronic density distribution of an engine in a grid representation.
+
+\par
+<b> Data Type: </b> \c MDI_DOUBLE <br>
+<b> Quantity: </b> \c NDENSITY
 
 
 
@@ -179,7 +221,7 @@ The driver sends a set of atomic forces to the engine, which replaces its intern
 
 \par
 <b> Data Type: </b> \c MDI_DOUBLE <br>
-<b> Quantity: </b> <c> 3 * <NATOMS </c> <br>
+<b> Quantity: </b> <c> 3 * NATOMS </c> <br>
 <b> Format: </b> Sequentially ascending order of atomic index, with the forces for each individual atom being provided in xyz order <br>
 
 
@@ -190,7 +232,7 @@ The driver sends a set of atomic forces to the engine, which adds the forces sen
 
 \par
 <b> Data Type: </b> \c MDI_DOUBLE <br>
-<b> Quantity: </b> <c> 3 * <NATOMS </c> <br>
+<b> Quantity: </b> <c> 3 * NATOMS </c> <br>
 <b> Format: </b> Sequentially ascending order of atomic index, with the forces for each individual atom being provided in xyz order <br>
 
 
@@ -202,7 +244,7 @@ These forces include all force contributions, including the force contributions 
 
 \par
 <b> Data Type: </b> \c MDI_DOUBLE <br>
-<b> Quantity: </b> <c> 3 * <NATOMS </c> <br>
+<b> Quantity: </b> <c> 3 * NATOMS </c> <br>
 <b> Format: </b> Sequentially ascending order of atomic index, with the forces for each individual atom being provided in xyz order
 
 
@@ -251,6 +293,30 @@ The engine sends the driver the number of atoms in the engine's system.
 
 
 
+\subsection recv_ndensity <NDENSITY
+
+The engine sends the number of grid points it is using to represent its electronic density on a grid.
+This command is intended to be used in conjuction with the \ref recv_cdensity and \ref recv_density commands; these three commands enable a driver to acquire the electronic density distribution of an engine in a grid representation.
+See the \ref recv_density command for more details.
+
+\par
+<b> Data Type: </b> \c MDI_INT <br>
+<b> Quantity: </b> 1
+
+
+
+\subsection send_npotential >NPOTENTIAL
+
+The driver sends the number of grid points it is using to represent a potential on a grid.
+This command is intended to be used in conjuction with the \ref send_cpotential and \ref send_potential commands; these three commands enable a driver to set an external potential that is incorporated into a subsequent \ref scf_command command.
+See the \ref send_potential command for more details.
+
+\par
+<b> Data Type: </b> \c MDI_INT <br>
+<b> Quantity: </b> 1
+
+
+
 \subsection recv_types <NTYPES
 
 The engine sends the driver the number of different types of atoms (e.g. "H", "He", "C", "O", etc.) in the engine's system.
@@ -268,6 +334,20 @@ This engine calculates the energy of the system, which can be queried by the \c 
 
 \par
 <b> Note: </b> This command may change the engine's atomic coordinates under certain circumstances, such as if the SHAKE algorithm is used.
+
+
+
+\subsection send_potential >POTENTIAL
+
+The driver sends an set of values to the engine that correspond to a potential on a grid.
+If an \ref scf_command command is later issued, this potential will be incorporated into the SCF calculation as an external potential.
+
+Before sending this command, the driver must have first sent the number of grid points used to represent the potential via the \ref send_npotential command.
+It is also necessary that the driver send the Cartesian coordinates of the grid points via the \ref send_cpotential command prior to any subsequent \ref scf_command command.
+
+\par
+<b> Data Type: </b> \c MDI_DOUBLE <br>
+<b> Quantity: </b> \c NPOTENTIAL
 
 
 

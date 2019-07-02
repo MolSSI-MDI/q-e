@@ -62,8 +62,13 @@ int general_init(const char* options, void* world_comm) {
     mpi_rank = 0;
   }
   else {
-    mpi_communicator = *(MPI_Comm*) world_comm;
-    MPI_Comm_rank(mpi_communicator, &mpi_rank);
+    if ( world_rank == -1 ) {
+      mpi_communicator = *(MPI_Comm*) world_comm;
+      MPI_Comm_rank(mpi_communicator, &mpi_rank);
+    }
+    else {
+      mpi_rank = 0;
+    }
   }
 
   // calculate argc
@@ -135,6 +140,11 @@ int general_init(const char* options, void* world_comm) {
       port = strtol( argv[iarg+1], &strtol_ptr, 10 );
       has_port = 1;
       iarg += 2;
+    }
+    //-ipi
+    else if (strcmp(argv[iarg],"-ipi") == 0) {
+      ipi_compatibility = 1;
+      iarg += 1;
     }
     //_language
     else if (strcmp(argv[iarg],"_language") == 0) {
