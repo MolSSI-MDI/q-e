@@ -10,5 +10,5 @@ cd ../
 
 rm -r mdi/build
 #export MPICH_F90=gfortran
-./configure CC=gcc CXX=c++ F77=gfortran F90=g95 FC=gfortran CPP=cpp MPIF90=mpif90 -enable-parallel -enable-openmp
+./configure CC=gcc CXX=c++ F77=gfortran F90=g95 FC=gfortran CPP=cpp MPIF90=mpif90 LD=mpif90 LDFLAGS=-fopenmp -enable-parallel -enable-openmp
 make -j 32 pw
