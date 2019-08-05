@@ -83,7 +83,7 @@ int general_init(const char* options, void* world_comm) {
   }
 
   // calculate argv
-  char* argv[argc];
+  char** argv = malloc( argc * sizeof(char*) );
   argv_line = strdup(options);
   token = strtok(argv_line, " ");
   for (i=0; i<argc; i++) {
@@ -258,6 +258,7 @@ int general_init(const char* options, void* world_comm) {
   }
 
   free( argv_line );
+  free( argv );
 
   return 0;
 }
@@ -392,10 +393,11 @@ int general_send_command(const char* buf, MDI_Comm comm) {
     mdi_error("Called MDI_Send_Command with incorrect rank");
   }
   int count = MDI_COMMAND_LENGTH;
-  char command[MDI_COMMAND_LENGTH];
+  char* command = malloc( MDI_COMMAND_LENGTH * sizeof(char) );
 
   strcpy(command, buf);
   int ret = general_send( command, count, MDI_CHAR, comm );
+  free( command );
   return ret;
 }
 
