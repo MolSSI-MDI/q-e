@@ -771,6 +771,11 @@ CONTAINS
   !
   SUBROUTINE write_energy()
     !
+    ! ... Run an SCF calculation
+    ! NOTE: SHOULD CHECK WHETHER THIS IS NECESSARY
+    !
+    CALL run_scf()
+    !
     ! ... Write the total energy in a.u.
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Sending energy: ",0.5*etot
@@ -780,6 +785,11 @@ CONTAINS
   !
   !
   SUBROUTINE write_forces()
+    !
+    ! ... Run an SCF calculation
+    ! NOTE: SHOULD CHECK WHETHER THIS IS NECESSARY
+    !
+    CALL run_scf()
     !
     ! ... Compute forces
     !
