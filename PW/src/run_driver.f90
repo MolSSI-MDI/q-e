@@ -127,7 +127,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   !
   IF (ionode) THEN
      IF ( is_mdi ) THEN
-        CALL MDI_Accept_Communicator( socket )
+        CALL MDI_Accept_Communicator( socket, ierr )
      ELSE
         CALL create_socket(srvaddress)
      END IF
