@@ -15,9 +15,9 @@
  *
  */
 int test_initialize() {
-  communicator new_comm;
-  new_comm.method = MDI_TEST;
-  vector_push_back( &communicators, &new_comm );
+  code* this_code = get_code(current_code);
+
+  new_communicator(this_code->id, MDI_TEST);
 
   return 0;
 }
@@ -37,6 +37,7 @@ int test_send(const void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) 
 
   if ( datatype != MDI_INT && datatype != MDI_DOUBLE && datatype != MDI_CHAR ) {
     mdi_error("MDI data type not recognized in test_send");
+    return 1;
   }
 
   return 0;
@@ -58,6 +59,7 @@ int test_recv(void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
 
   if ( datatype != MDI_INT && datatype != MDI_DOUBLE && datatype != MDI_CHAR ) {
     mdi_error("MDI data type not recognized in test_send");
+    return 1;
   }
 
   return 0;
