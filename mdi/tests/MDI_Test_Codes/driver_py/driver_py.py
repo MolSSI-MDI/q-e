@@ -12,11 +12,20 @@ try:
 except ImportError:
     use_numpy = False
 
-try:
-    from mpi4py import MPI
-    use_mpi4py = True
-except ImportError:
-    use_mpi4py = False
+# Check for a -nompi argument
+# This argument prevents the code from importing MPI
+nompi_flag = False
+for arg in sys.argv:
+    if arg == "-nompi":
+        nompi_flag = True
+
+use_mpi4py = False
+if not nompi_flag:
+    try:
+        from mpi4py import MPI
+        use_mpi4py = True
+    except ImportError:
+        pass
 
 # get the MPI communicator
 if use_mpi4py:
@@ -46,12 +55,12 @@ name = mdi.MDI_Recv(mdi.MDI_NAME_LENGTH, mdi.MDI_CHAR, comm)
 
 print(" Engine name: " + str(name))
 
-# Check if the engine has the @GLOBAL node
-if ( not mdi.MDI_Check_Node_Exists("@GLOBAL",comm) ):
-    raise Exception("Engine does not have the @GLOBAL node")
+# Check if the engine has the @DEFAULT node
+if ( not mdi.MDI_Check_Node_Exists("@DEFAULT",comm) ):
+    raise Exception("Engine does not have the @DEFAULT node")
 
 # Check if the engine supports the EXIT command
-if ( not mdi.MDI_Check_Command_Exists("@GLOBAL","EXIT",comm) ):
+if ( not mdi.MDI_Check_Command_Exists("@DEFAULT","EXIT",comm) ):
     raise Exception("Engine does not support the EXIT command")
 
 # Test the node, command, and callback inquiry functions
@@ -67,6 +76,7 @@ ncallbacks = mdi.MDI_Get_NCallbacks(second_node, comm)
 print("NCALLBACKS: " + str(ncallbacks))
 first_callback = mdi.MDI_Get_Callback(second_node, 0, comm)
 print("CALLBACK: " + str(first_callback))
+
 # Check if the engine supports >FORCES callback
 if ( not mdi.MDI_Check_Callback_Exists("@FORCES",">FORCES",comm) ):
     raise Exception("Engine does not support the >FORCES command")
@@ -79,18 +89,34 @@ print("NATOMS: " + str(natoms))
 # Send the "<COORDS" command to the engine
 mdi.MDI_Send_Command("<COORDS", comm)
 if use_numpy:
-    coords_temp = mdi.MDI_Recv(3 * natoms, mdi.MDI_DOUBLE_NUMPY, comm)
+    coords_temp = np.zeros((natoms,3), dtype='float64')
+    mdi.MDI_Recv(3 * natoms, mdi.MDI_DOUBLE, comm, buf = coords_temp)
+    coords = [ str( round(coords_temp[icoord // 3][icoord % 3], 10) ) for icoord in range( 3 * natoms ) ]
 else:
     coords_temp = mdi.MDI_Recv(3 * natoms, mdi.MDI_DOUBLE, comm)
-coords = [ round(coords_temp[icoord], 10) for icoord in range( 3 * natoms ) ]
-print("COORDS: " + str(coords))
+    coords = [ str( round(coords_temp[icoord], 10) ) for icoord in range( 3 * natoms ) ]
+print("COORDS: " + '[%s]' % ', '.join(map(str, coords)) )
 
 # Send the "<FORCES" command to the engine
 mdi.MDI_Send_Command("<FORCES", comm)
 forces = mdi.MDI_Recv(3 * natoms, mdi.MDI_DOUBLE, comm)
 for iforce in range( 3 * natoms ):
-    forces[iforce] = round(forces[iforce], 10)
-print("FORCES: " + str(forces))
+    forces[iforce] = str( round(forces[iforce], 10) )
+print("FORCES: " + '[%s]' % ', '.join(map(str, forces)) )
+
+if use_numpy:
+    mdi.MDI_Send_Command("<FORCES_B", comm)
+    double_size = np.dtype(np.float64).itemsize
+    forces_double = np.zeros((natoms,3), dtype='float64')
+    type_name = forces_double.dtype.name
+    forces_bytes = forces_double.tobytes()
+    mdi.MDI_Recv(3 * natoms * double_size, mdi.MDI_BYTE, comm, buf = forces_bytes)
+    forces_b = np.frombuffer(forces_bytes, dtype = type_name)
+    forces_print = [ str( round(forces_b[iforce], 10) ) for iforce in range( 3 * natoms ) ]
+else:
+    forces_print = forces
+
+print("FORCES_B: " + '[%s]' % ', '.join(map(str, forces_print)) )
 
 # Send the "EXIT" command to the engine
 mdi.MDI_Send_Command("EXIT", comm)

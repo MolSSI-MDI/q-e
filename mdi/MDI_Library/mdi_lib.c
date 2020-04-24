@@ -21,6 +21,13 @@ int library_initialize() {
   MDI_Comm comm_id = new_communicator(this_code->id, MDI_LIB);
   communicator* new_comm = get_communicator(this_code->id, comm_id);
   new_comm->delete = communicator_delete_lib;
+  new_comm->send = library_send;
+  new_comm->recv = library_recv;
+
+  // set the MDI version number of the new communicator
+  new_comm->mdi_version[0] = MDI_MAJOR_VERSION;
+  new_comm->mdi_version[1] = MDI_MINOR_VERSION;
+  new_comm->mdi_version[2] = MDI_PATCH_VERSION;
 
   // allocate the method data
   library_data* libd = malloc(sizeof(library_data));
@@ -180,7 +187,7 @@ int library_set_command(const char* command, MDI_Comm comm) {
 
   // set the command
   library_data* engine_lib = (library_data*) engine_comm->method_data;
-  strncpy(engine_lib->command, command, MDI_COMMAND_LENGTH);
+  snprintf(engine_lib->command, COMMAND_LENGTH, "%s", command);
 
   return 0;
 }
@@ -241,8 +248,13 @@ int library_execute_command(MDI_Comm comm) {
  *                   MDI handle (MDI_INT, MDI_DOUBLE, MDI_CHAR, etc.) corresponding to the type of data to be sent.
  * \param [in]       comm
  *                   MDI communicator associated with the intended recipient code.
+ * \param [in]       msg_flag
+ *                   Type of role this data has within a message.
+ *                   0: Not part of a message.
+ *                   1: The header of a message.
+ *                   2: The body (data) of a message.
  */
-int library_send(const void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
+int library_send(const void* buf, int count, MDI_Datatype datatype, MDI_Comm comm, int msg_flag) {
   if ( datatype != MDI_INT && datatype != MDI_DOUBLE && datatype != MDI_CHAR ) {
     mdi_error("MDI data type not recognized in library_send");
     return 1;
@@ -277,33 +289,96 @@ int library_send(const void* buf, int count, MDI_Datatype datatype, MDI_Comm com
     else if (datatype == MDI_CHAR) {
       datasize = sizeof(char);
     }
-
-    // confirm that libd->buf is not already allocated
-    if ( libd->buf_allocated != 0 ) {
-      mdi_error("MDI recv buffer already allocated");
+    else if (datatype == MDI_BYTE) {
+      datasize = sizeof(char);
+    }
+    else {
+      mdi_error("MDI Error: Unrecognized data type");
       return 1;
     }
 
-    // allocate the memory required for the send
-    libd->buf = malloc( datasize * count );
-    libd->buf_allocated = 1;
+    int nheader_actual = 4; // actual number of elements of nheader that were sent
 
-    // copy the contents of buf into libd->buf
-    memcpy(libd->buf, buf, datasize * count);
+    if ( msg_flag == 1 ) { // message header
 
-  }
+      // confirm that libd->buf is not already allocated
+      if ( libd->buf_allocated != 0 ) {
+	mdi_error("MDI recv buffer already allocated");
+	return 1;
+      }
 
-  // check whether the recipient code should now execute its command
-  if ( libd->execute_on_send == 1 ) {
-    // have the recipient code execute its command
-    library_execute_command(comm);
+      // get the size of the message body, based on the header information
+      int* header = (int*)buf;
+      int body_type = header[2];
+      int body_size = header[3];
+      size_t body_stride;
+      if (datatype == MDI_INT) {
+	body_stride = sizeof(int);
+      }
+      else if (datatype == MDI_DOUBLE) {
+	body_stride = sizeof(double);
+      }
+      else if (datatype == MDI_CHAR) {
+	body_stride = sizeof(char);
+      }
+      else if (datatype == MDI_BYTE) {
+	body_stride = sizeof(char);
+      }
+      else {
+	mdi_error("MDI Error: Unrecognized data type");
+      }
 
-    // turn off the execute_on_send flag
-    libd->execute_on_send = 0;
+      int msg_bytes = ( (int)datasize * count ) + ( (int)body_stride * body_size );
+
+      // allocate the memory required for the entire message
+      libd->buf = malloc( msg_bytes );
+      libd->buf_allocated = 1;
+
+      // copy the header into libd->buf
+      memcpy(libd->buf, buf, nheader_actual * sizeof(int));
+
+    }
+    else if ( msg_flag == 2 ) { // message body
+
+      // confirm that libd->buf has been allocated
+      int has_header = 1;
+      if ( libd->buf_allocated == 0 ) {
+	// libd->buf has not been allocated, which means there is no header
+	has_header = 0;
+	libd->buf = malloc( datasize * count );
+	libd->buf_allocated = 1;
+      }
+
+      int offset = 0;
+      if ( has_header == 1 ) {
+	offset = nheader_actual * sizeof(int);
+      }
+
+      // copy the body into libd->buf
+      memcpy((char*)libd->buf + offset, buf, datasize * count);
+
+      // check whether the recipient code should now execute its command
+      if ( libd->execute_on_send == 1 ) {
+	// have the recipient code execute its command
+	library_execute_command(comm);
+
+	// turn off the execute_on_send flag
+	libd->execute_on_send = 0;
+      }
+
+    }
+    else {
+
+      mdi_error("MDI library unknown msg_flag in send\n");
+      return 1;
+
+    }
+
   }
 
   return 0;
 }
+
 
 
 /*! \brief Function to handle receiving data through an MDI connection, using library-based communication
@@ -316,8 +391,13 @@ int library_send(const void* buf, int count, MDI_Datatype datatype, MDI_Comm com
  *                   MDI handle (MDI_INT, MDI_DOUBLE, MDI_CHAR, etc.) corresponding to the type of data to be received.
  * \param [in]       comm
  *                   MDI communicator associated with the connection to the sending code.
+ * \param [in]       msg_flag
+ *                   Type of role this data has within a message.
+ *                   0: Not part of a message.
+ *                   1: The header of a message.
+ *                   2: The body (data) of a message.
  */
-int library_recv(void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
+int library_recv(void* buf, int count, MDI_Datatype datatype, MDI_Comm comm, int msg_flag) {
   code* this_code = get_code(current_code);
   communicator* this = get_communicator(current_code, comm);
   library_data* libd = (library_data*) this->method_data;
@@ -355,6 +435,12 @@ int library_recv(void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
   else if (datatype == MDI_CHAR) {
     datasize = sizeof(char);
   }
+  else if (datatype == MDI_BYTE) {
+    datasize = sizeof(char);
+  }
+  else {
+    mdi_error("MDI Error: Unrecognized data type");
+  }
 
   // confirm that libd->buf is initialized
   if ( other_lib->buf_allocated != 1 ) {
@@ -362,15 +448,40 @@ int library_recv(void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
     return 1;
   }
 
-  // copy the contents of libd->buf into buf
-  memcpy(buf, other_lib->buf, datasize * count);
+  // receive message header information
+  // only do this if communicating with MDI version 1.1 or higher
+  if ( ( this->mdi_version[0] > 1 ||
+	 ( this->mdi_version[0] == 1 && this->mdi_version[1] >= 1 ) )
+       && ipi_compatibility != 1 ) {
 
-  // free the memory of libd->buf
-  free( other_lib->buf );
-  other_lib->buf_allocated = 0;
+    if ( msg_flag == 1 ) { // message header
+
+      memcpy(buf, other_lib->buf, count * datasize);
+
+    }
+    else if ( msg_flag == 2 ) { // message body
+
+      int nheader = 4;
+      int offset = nheader * sizeof(int);
+      memcpy(buf, (char*)other_lib->buf + offset, count * datasize);
+
+      // free the memory of libd->buf
+      free( other_lib->buf );
+      other_lib->buf_allocated = 0;
+
+    }
+    else {
+
+      mdi_error("MDI library unknown msg_flag in send\n");
+      return 1;
+
+    }
+
+  }
 
   return 0;
 }
+
 
 
 /*! \brief Function for LIBRARY-specific deletion operations for communicator deletion

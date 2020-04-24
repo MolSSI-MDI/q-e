@@ -33,13 +33,13 @@ Contents:
 #include "physconst.h"
 
 /*! \brief MDI major version number */
-const int MDI_MAJOR_VERSION = 0;
+const int MDI_MAJOR_VERSION = 1;
 
 /*! \brief MDI minor version number */
-const int MDI_MINOR_VERSION = 6;
+const int MDI_MINOR_VERSION = 1;
 
 /*! \brief MDI patch version number */
-const int MDI_PATCH_VERSION = 5;
+const int MDI_PATCH_VERSION = 4;
 
 /*! \brief length of an MDI command in characters */
 const int MDI_COMMAND_LENGTH = 12;
@@ -48,7 +48,7 @@ const int MDI_COMMAND_LENGTH = 12;
 const int MDI_NAME_LENGTH = 12;
 
 /*! \brief value of a null communicator */
-const MDI_Comm MDI_NULL_COMM = 0;
+const MDI_Comm MDI_COMM_NULL = 0;
 
 // MDI data types
 /*! \brief integer data type */
@@ -57,10 +57,8 @@ const int MDI_INT          = 1;
 const int MDI_DOUBLE       = 2;
 /*! \brief character data type */
 const int MDI_CHAR         = 3;
-/*! \brief NumPy integer data type */
-const int MDI_INT_NUMPY    = 4;
-/*! \brief NumPy double precision float data type */
-const int MDI_DOUBLE_NUMPY = 5;
+/*! \brief character data type */
+const int MDI_BYTE         = 6;
 
 // MDI communication types
 /*! \brief TCP/IP communication method */
@@ -109,7 +107,7 @@ int MDI_Init(const char* options, void* world_comm)
 /*! \brief Accept a new MDI communicator
  *
  * The function returns an MDI_Comm that describes a connection between two codes.
- * If no new communicators are available, the function returns \p MDI_NULL_COMM.
+ * If no new communicators are available, the function returns \p MDI_COMM_NULL.
  *
  */
 MDI_Comm MDI_Accept_Communicator(MDI_Comm* comm)
@@ -658,7 +656,7 @@ int MDI_Register_Node(const char* node_name)
  *                   Name of the node.
  * \param [in]       comm
  *                   MDI communicator of the engine.  If comm is set to 
- *                   MDI_NULL_COMM, the function will check for the calling engine.
+ *                   MDI_COMM_NULL, the function will check for the calling engine.
  * \param [out]      flag
  *                   On return, 1 if the node is supported and 0 otherwise.
  */
@@ -693,7 +691,7 @@ int MDI_Check_Node_Exists(const char* node_name, MDI_Comm comm, int* flag)
  *
  * \param [in]       comm
  *                   MDI communicator of the engine.  If comm is set to 
- *                   MDI_NULL_COMM, the function will check for the calling engine.
+ *                   MDI_COMM_NULL, the function will check for the calling engine.
  * \param [out]      nnodes
  *                   On return, the number of nodes supported by the engine.
  */
@@ -705,7 +703,7 @@ int MDI_Get_NNodes(MDI_Comm comm, int* nnodes)
   }
 
   vector* node_vec = get_node_vector(comm);
-  *nnodes = node_vec->size;
+  *nnodes = (int)node_vec->size;
 
   return 0;
 }
@@ -718,7 +716,7 @@ int MDI_Get_NNodes(MDI_Comm comm, int* nnodes)
  *                   Index of the node on the specified engine.
  * \param [in]       comm
  *                   MDI communicator of the engine.  If comm is set to 
- *                   MDI_NULL_COMM, the function will check for the calling engine.
+ *                   MDI_COMM_NULL, the function will check for the calling engine.
  * \param [out]      name
  *                   On return, the name of the node
  */
@@ -739,7 +737,7 @@ int MDI_Get_Node(int index, MDI_Comm comm, char* name)
     mdi_error("MDI_Get_Node unable to find node");
     return 1;
   }
-  strcpy(name, &ret_node->name[0]);
+  snprintf(name, MDI_NAME_LENGTH, "%s", ret_node->name);
   return 0;
 }
 
@@ -772,7 +770,7 @@ int MDI_Register_Command(const char* node_name, const char* command_name)
  *                   Name of the command.
  * \param [in]       comm
  *                   MDI communicator of the engine.  If comm is set to 
- *                   MDI_NULL_COMM, the function will check for the calling engine.
+ *                   MDI_COMM_NULL, the function will check for the calling engine.
  * \param [out]      flag
  *                   On return, 1 if the command is supported and 0 otherwise.
  */
@@ -824,7 +822,7 @@ int MDI_Check_Command_Exists(const char* node_name, const char* command_name, MD
  *                   Name of the node.
  * \param [in]       comm
  *                   MDI communicator of the engine.  If comm is set to 
- *                   MDI_NULL_COMM, the function will check for the calling engine.
+ *                   MDI_COMM_NULL, the function will check for the calling engine.
  * \param [out]      nnodes
  *                   On return, the number of commands supported on the specified engine
  *                   on the specified node.
@@ -852,7 +850,7 @@ int MDI_Get_NCommands(const char* node_name, MDI_Comm comm, int* ncommands)
   }
   node* target_node = vector_get(node_vec, node_index);
 
-  *ncommands = target_node->commands->size;
+  *ncommands = (int)target_node->commands->size;
   return 0;
 }
 
@@ -866,7 +864,7 @@ int MDI_Get_NCommands(const char* node_name, MDI_Comm comm, int* ncommands)
  *                   Index of the command on the specified node.
  * \param [in]       comm
  *                   MDI communicator of the engine.  If comm is set to 
- *                   MDI_NULL_COMM, the function will check for the calling engine.
+ *                   MDI_COMM_NULL, the function will check for the calling engine.
  * \param [out]      name
  *                   On return, the name of the command
  */
@@ -892,7 +890,7 @@ int MDI_Get_Command(const char* node_name, int index, MDI_Comm comm, char* name)
   }
 
   char* target_command = vector_get( target_node->commands, index );
-  strcpy(name, target_command);
+  snprintf(name, MDI_NAME_LENGTH, "%s", target_command);
   return 0;
 }
 
@@ -925,7 +923,7 @@ int MDI_Register_Callback(const char* node_name, const char* callback_name)
  *                   Name of the callback.
  * \param [in]       comm
  *                   MDI communicator of the engine.  If comm is set to 
- *                   MDI_NULL_COMM, the function will check for the calling engine.
+ *                   MDI_COMM_NULL, the function will check for the calling engine.
  * \param [out]      flag
  *                   On return, 1 if the callback is supported and 0 otherwise.
  */
@@ -977,7 +975,7 @@ int MDI_Check_Callback_Exists(const char* node_name, const char* callback_name, 
  *                   Name of the node.
  * \param [in]       comm
  *                   MDI communicator of the engine.  If comm is set to 
- *                   MDI_NULL_COMM, the function will check for the calling engine.
+ *                   MDI_COMM_NULL, the function will check for the calling engine.
  * \param [out]      ncallbacks
  *                   On return, the number of callbacks on the specified node
  *                   on the specified engine.
@@ -1005,7 +1003,7 @@ int MDI_Get_NCallbacks(const char* node_name, MDI_Comm comm, int* ncallbacks)
   }
   node* target_node = vector_get(node_vec, node_index);
 
-  *ncallbacks = target_node->callbacks->size;
+  *ncallbacks = (int)target_node->callbacks->size;
   return 0;
 }
 
@@ -1019,7 +1017,7 @@ int MDI_Get_NCallbacks(const char* node_name, MDI_Comm comm, int* ncallbacks)
  *                   Index of the callback on the specified node.
  * \param [in]       comm
  *                   MDI communicator of the engine.  If comm is set to 
- *                   MDI_NULL_COMM, the function will check for the calling engine.
+ *                   MDI_COMM_NULL, the function will check for the calling engine.
  * \param [out]      name
  *                   On return, the name of the callback
  */
@@ -1046,7 +1044,7 @@ int MDI_Get_Callback(const char* node_name, int index, MDI_Comm comm, char* name
   }
 
   char* target_callback = vector_get( target_node->callbacks, index );
-  strcpy(name, target_callback);
+  snprintf(name, MDI_NAME_LENGTH, "%s", target_callback);
   return 0;
 }
 

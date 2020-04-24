@@ -33,6 +33,7 @@ CALLBACK: >FORCES
 NATOMS: 10
 COORDS: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9]
 FORCES: [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29]
+FORCES_B: [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.2, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29]
 """
 
 
@@ -165,6 +166,24 @@ NATOMS: 20
 def test_cxx_cxx_mpi():
     # get the names of the driver and engine codes, which include a .exe extension on Windows
     driver_name = glob.glob("../build/driver_cxx*")[0]
+    engine_name = glob.glob("../build/engine_cxx*")[0]
+
+    # run the calculation
+    driver_proc = subprocess.Popen(["mpiexec","-n","1",driver_name, "-mdi", "-role DRIVER -name driver -method MPI",":",
+                                    "-n","1",engine_name,"-mdi","-role ENGINE -name MM -method MPI"],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=build_dir)
+    driver_tup = driver_proc.communicate()
+
+    # convert the driver's output into a string
+    driver_out = format_return(driver_tup[0])
+    driver_err = format_return(driver_tup[1])
+
+    assert driver_out == " Engine name: MM\n"
+    assert driver_err == ""
+
+def test_cxx_cxx_mpi_serial():
+    # get the names of the driver and engine codes, which include a .exe extension on Windows
+    driver_name = glob.glob("../build/driver_serial_cxx*")[0]
     engine_name = glob.glob("../build/engine_cxx*")[0]
 
     # run the calculation
@@ -318,6 +337,24 @@ def test_py_py_mpi():
     # run the calculation
     driver_proc = subprocess.Popen(["mpiexec","-n","1",sys.executable,"driver_py.py", "-mdi", "-role DRIVER -name driver -method MPI",":",
                                     "-n","1",sys.executable,"engine_py.py","-mdi","-role ENGINE -name MM -method MPI"],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=build_dir)
+    driver_tup = driver_proc.communicate()
+
+    # convert the driver's output into a string
+    driver_out = format_return(driver_tup[0])
+    driver_err = format_return(driver_tup[1])
+ 
+    assert driver_err == ""
+    assert driver_out == driver_out_expected_py
+
+def test_py_py_mpi_serial():
+    global driver_out_expected_py
+
+    # run the calculation
+    driver_proc = subprocess.Popen(["mpiexec","-n","1",sys.executable,"driver_py.py", 
+                                    "-mdi", "-role DRIVER -name driver -method MPI","-nompi",":",
+                                    "-n","1",sys.executable,"engine_py.py",
+                                    "-mdi","-role ENGINE -name MM -method MPI","-nompi"],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=build_dir)
     driver_tup = driver_proc.communicate()
 
@@ -619,7 +656,7 @@ def test_unit_conversions_py():
 ##########################
 
 def test_uninitialized():
-    comm = mdi.MDI_NULL_COMM
+    comm = mdi.MDI_COMM_NULL
 
     # Test exceptions when MDI is not initialized
     with pytest.raises(Exception):
