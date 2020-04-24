@@ -8,9 +8,23 @@
 
 #include <mpi.h>
 
+#ifdef _WIN32
+  #include <winsock2.h>
+  #define sock_t SOCKET
+#else
+  #define sock_t int
+#endif
+
+#ifdef _WIN32
+  #define mdi_strdup _strdup
+#else
+  #define mdi_strdup strdup
+#endif
+
 #define COMMAND_LENGTH 12
 #define NAME_LENGTH 12
 typedef int MDI_Comm_Type;
+typedef int MDI_Datatype_Type;
 
 typedef struct dynamic_array_struct {
   /*! \brief The elements stored by this vector */
@@ -24,26 +38,24 @@ typedef struct dynamic_array_struct {
 } vector;
 
 typedef struct communicator_struct {
-  /*! \brief Communication method used by this communicator (either MDI_TCP or MDI_MPI) */
+  /*! \brief Communication method used by this communicator */
   int method;
-  /*! \brief MPI_Comm handle that corresponds to this communicator */
+  /*! \brief MDI_Comm handle that corresponds to this communicator */
   MDI_Comm_Type id;
   /*! \brief Handle for the id of the associated code */
   int code_id;
-  /*! \brief For communicators using the TCP communicatiom method, the socket descriptor */
-  int sockfd;
-  /*! \brief For communicators using the MPI communicatiom method, the inter-code MPI 
-  communicator */
-  MPI_Comm mpi_comm;
-  /*! \brief For communicators using the MPI communication method, the rank of this 
-  process within the inter-code MPI communicator */
-  int mpi_rank;
+  /*! \brief For communicators using the TCP communicatiom method, the socket descriptor (WINDOWS) */
+  sock_t sockfd;
   /*! \brief The MDI version of the connected code */
   int mdi_version[3];
   /*! \brief The nodes supported by the connected code */
   vector* nodes;
   /*! \brief Method-specific information for this communicator */
   void* method_data;
+  /*! \brief Function pointer for method-specific send operations */
+  int (*send)(const void*, int, MDI_Datatype_Type, MDI_Comm_Type, int);
+  /*! \brief Function pointer for method-specific receive operations */
+  int (*recv)(void*, int, MDI_Datatype_Type, MDI_Comm_Type, int);
   /*! \brief Function pointer for method-specific deletion operations */
   int (*delete)(void*);
 } communicator;
@@ -78,8 +90,6 @@ typedef struct code_struct {
   int (*execute_command)(const char*, MDI_Comm_Type, void*);
   /*! \brief Pointer to the class object that is passed to any call to execute_command */
   void* execute_command_obj;
-  /*! \brief Flag whether this code is Python */
-  int is_python;
   /*! \brief Flag whether this code is being used as a library
   0: Not a library
   1: Is an ENGINE library, but has not connected to the driver
@@ -99,6 +109,12 @@ extern int ipi_compatibility;
 
 /*! \brief Flag for whether MDI has been previously initialized */
 extern int is_initialized;
+
+/*! \brief Flag for whether MDI called MPI_Init */
+extern int initialized_mpi;
+
+/*! \brief Internal copy of MPI_COMM_WORLD, used when MDI initializes MPI */
+extern MPI_Comm mdi_mpi_comm_world;
 
 /*! \brief Python callback pointer for MPI_Recv */
 extern int (*mpi4py_recv_callback)(void*, int, int, int, MDI_Comm_Type);

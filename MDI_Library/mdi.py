@@ -4,13 +4,14 @@ import os
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 import ctypes
+import sys
 
 # attempt to import numpy
 try:
     import numpy as np
-    use_numpy = True
+    found_numpy = True
 except ImportError:
-    use_numpy = False
+    found_numpy = False
 
 # attempt to import mpi4py
 try:
@@ -40,12 +41,11 @@ except (ValueError, AttributeError):
 # MDI Variables
 MDI_COMMAND_LENGTH = ctypes.c_int.in_dll(mdi, "MDI_COMMAND_LENGTH").value
 MDI_NAME_LENGTH = ctypes.c_int.in_dll(mdi, "MDI_NAME_LENGTH").value
-MDI_NULL_COMM = ctypes.c_int.in_dll(mdi, "MDI_NULL_COMM").value
+MDI_COMM_NULL = ctypes.c_int.in_dll(mdi, "MDI_COMM_NULL").value
 MDI_INT = ctypes.c_int.in_dll(mdi, "MDI_INT").value
 MDI_DOUBLE = ctypes.c_int.in_dll(mdi, "MDI_DOUBLE").value
 MDI_CHAR = ctypes.c_int.in_dll(mdi, "MDI_CHAR").value
-MDI_INT_NUMPY = ctypes.c_int.in_dll(mdi, "MDI_INT_NUMPY").value
-MDI_DOUBLE_NUMPY = ctypes.c_int.in_dll(mdi, "MDI_DOUBLE_NUMPY").value
+MDI_BYTE = ctypes.c_int.in_dll(mdi, "MDI_BYTE").value
 MDI_TCP = ctypes.c_int.in_dll(mdi, "MDI_TCP").value
 MDI_MPI = ctypes.c_int.in_dll(mdi, "MDI_MPI").value
 MDI_LIB = ctypes.c_int.in_dll(mdi, "MDI_LIB").value
@@ -110,6 +110,34 @@ def c_ptr_to_py_str(in_ptr, length):
     presult = presult.decode('utf-8')
     return presult
 
+def mpi4py_get_np_array(buf, count, datatype, mdi_comm):
+    global mpi4py_comms
+
+    # determine the data type
+    if datatype == MDI_INT:
+        mpi_type = MPI.INT
+        datasize = ctypes.sizeof( ctypes.c_int )
+    elif datatype == MDI_DOUBLE:
+        mpi_type = MPI.DOUBLE
+        datasize = ctypes.sizeof( ctypes.c_double )
+    elif datatype == MDI_CHAR:
+        mpi_type = MPI.CHAR
+        datasize = ctypes.sizeof( ctypes.c_char )
+    elif datatype == MDI_BYTE:
+        mpi_type = MPI.BYTE
+        datasize = ctypes.sizeof( ctypes.c_char )
+    else:
+        raise Exception("MDI Error: MDI type not recognized")
+
+    # get a numpy representation of the data
+    nparray = np.ctypeslib.as_array(buf, shape=tuple([ count * datasize ]))
+
+    # get the correct communicator for this array
+    comm = mpi4py_comms[mdi_comm]
+
+    return comm, (nparray, mpi_type)
+
+
 ##################################################
 # MPI4Py Recv Callback                           #
 ##################################################
@@ -128,26 +156,17 @@ mdi.MDI_Set_Mpi4py_Recv_Callback.argtypes = [mpi4py_recv_func_type]
 
 # define the python callback function
 def mpi4py_recv_callback(buf, count, datatype, source, mdi_comm):
+    try:
 
-    # determine the data type
-    if datatype == MDI_INT_NUMPY or datatype == MDI_INT:
-        mpi_type = MPI.INT
-        datasize = ctypes.sizeof( ctypes.c_int )
-    elif datatype == MDI_DOUBLE_NUMPY or datatype == MDI_DOUBLE:
-        mpi_type = MPI.DOUBLE
-        datasize = ctypes.sizeof( ctypes.c_double )
-    elif datatype == MDI_CHAR:
-        mpi_type = MPI.CHAR
-        datasize = ctypes.sizeof( ctypes.c_char )
-    else:
-        raise Exception("MDI Error: MDI type not recognized")
+        comm, recv_buf = mpi4py_get_np_array(buf, count, datatype, mdi_comm)
+        comm.Recv(recv_buf, source=source)
+        return 0
 
-    # get a numpy representation of the data
-    nparray = np.ctypeslib.as_array(buf, shape=[ count * datasize ])
+    except Exception as e:
 
-    comm = mpi4py_comms[mdi_comm]
-    comm.Recv([nparray, mpi_type], source=source)
-    return 0
+        sys.stderr.write("MDI Error in mpi4py_recv_callback: \n" + str(e) + "\n")
+        sys.stderr.flush()
+        return -1
 
 # define the python function that will set the callback function in c
 mpi4py_recv_callback_c = mpi4py_recv_func_type( mpi4py_recv_callback )
@@ -173,27 +192,17 @@ mdi.MDI_Set_Mpi4py_Send_Callback.argtypes = [mpi4py_send_func_type]
 
 # define the python callback function
 def mpi4py_send_callback(buf, count, datatype, destination, mdi_comm):
-    global mpi4py_comms
+    try:
 
-    # determine the data type
-    if datatype == MDI_INT_NUMPY or datatype == MDI_INT:
-        mpi_type = MPI.INT
-        datasize = ctypes.sizeof( ctypes.c_int )
-    elif datatype == MDI_DOUBLE_NUMPY or datatype == MDI_DOUBLE:
-        mpi_type = MPI.DOUBLE
-        datasize = ctypes.sizeof( ctypes.c_double )
-    elif datatype == MDI_CHAR:
-        mpi_type = MPI.CHAR
-        datasize = ctypes.sizeof( ctypes.c_char )
-    else:
-        raise Exception("MDI Error: MDI type not recognized")
+        comm, send_buf = mpi4py_get_np_array(buf, count, datatype, mdi_comm)
+        comm.Send(send_buf, dest=destination)
+        return 0
 
-    # get a numpy representation of the data
-    nparray = np.ctypeslib.as_array(buf, shape=[ count * datasize ])
+    except Exception as e:
 
-    comm = mpi4py_comms[mdi_comm]
-    comm.Send([nparray, mpi_type], dest=destination)
-    return 0
+        sys.stderr.write("MDI Error in mpi4py_send_callback: \n" + str(e) + "\n")
+        sys.stderr.flush()
+        return -1
 
 # define the python function that will set the callback function in c
 mpi4py_send_callback_c = mpi4py_send_func_type( mpi4py_send_callback )
@@ -216,9 +225,14 @@ mdi.MDI_Set_Mpi4py_Size_Callback.argtypes = [mpi4py_size_func_type]
 # define the python callback function
 def mpi4py_size_callback(comm_flag):
     try:
+
         comm = get_mpi_comm_from_flag( comm_flag )
         return comm.Get_size()
-    except Exception:
+
+    except Exception as e:
+
+        sys.stderr.write("MDI Error in mpi4py_size_callback: \n" + str(e) + "\n")
+        sys.stderr.flush()
         return -1
 
 # define the python function that will set the callback function in c
@@ -242,9 +256,14 @@ mdi.MDI_Set_Mpi4py_Rank_Callback.argtypes = [mpi4py_rank_func_type]
 # define the python callback function
 def mpi4py_rank_callback(comm_flag):
     try:
+
         comm = get_mpi_comm_from_flag( comm_flag )
         return comm.Get_rank()
-    except Exception:
+
+    except Exception as e:
+
+        sys.stderr.write("MDI Error in mpi4py_rank_callback: \n" + str(e) + "\n")
+        sys.stderr.flush()
         return -1
 
 # define the python function that will set the callback function in c
@@ -268,17 +287,27 @@ mdi.MDI_Set_Mpi4py_Gather_Names_Callback.argtypes = [mpi4py_gather_names_func_ty
 
 # define the python callback function
 def mpi4py_gather_names_callback(buf, names):
-    global world_comm
-    world_size = world_comm.Get_size()
+    try:
 
-    # Create numpy arrays from the C pointers
-    buf_np = np.ctypeslib.as_array(buf, shape=[MDI_NAME_LENGTH])
-    names_np = np.ctypeslib.as_array(names, shape=[MDI_NAME_LENGTH * world_size])
+        global world_comm
+        world_size = world_comm.Get_size()
 
-    # Gather the names
-    world_comm.Allgather([buf_np, MPI.CHAR], [names_np, MPI.CHAR])
+       # Create numpy arrays from the C pointers
+        buf_shape = tuple( [MDI_NAME_LENGTH] )
+        buf_np = np.ctypeslib.as_array(buf, shape=buf_shape)
+        names_shape = tuple( [MDI_NAME_LENGTH * world_size] )
+        names_np = np.ctypeslib.as_array(names, shape=names_shape)
 
-    return 0
+       # Gather the names
+        world_comm.Allgather([buf_np, MPI.CHAR], [names_np, MPI.CHAR])
+
+        return 0
+
+    except Exception as e:
+
+        sys.stderr.write("MDI Error in mpi4py_gather_names_callback: \n" + str(e) + "\n")
+        sys.stderr.flush()
+        return -1
 
 # define the python function that will set the callback function in c
 mpi4py_gather_names_callback_c = mpi4py_gather_names_func_type( mpi4py_gather_names_callback )
@@ -300,23 +329,31 @@ mdi.MDI_Set_Mpi4py_Barrier_Callback.argtypes = [mpi4py_barrier_func_type]
 
 # define the python callback function
 def mpi4py_barrier_callback(comm_flag):
-    global world_comm
-    global intra_code_comm
+    try:
 
-    # get the correct communicator, based on the comm_flag
-    if comm_flag == 0: # use world_comm
-        comm = world_comm
-    elif comm_flag == 1: # use the code intra_comm
-        comm = intra_code_comm
-    else:
-        raise Exception("MDI Error: Unknown comm flag in mpi4py_barrier_callback")
+        global world_comm
+        global intra_code_comm
 
-    if comm:
-        comm.Barrier()
-    else:
-        raise Exception("MDI Error: Unable to find mpi communicator in mpi4py_barrier_callback")
+        # get the correct communicator, based on the comm_flag
+        if comm_flag == 0: # use world_comm
+            comm = world_comm
+        elif comm_flag == 1: # use the code intra_comm
+            comm = intra_code_comm
+        else:
+            raise Exception("MDI Error: Unknown comm flag in mpi4py_barrier_callback")
 
-    return 0
+        if comm:
+            comm.Barrier()
+        else:
+            raise Exception("MDI Error: Unable to find mpi communicator in mpi4py_barrier_callback")
+
+        return 0
+
+    except Exception as e:
+
+        sys.stderr.write("MDI Error in mpi4py_barrier_callback: \n" + str(e) + "\n")
+        sys.stderr.flush()
+        return -1
 
 # define the python function that will set the callback function in c
 mpi4py_barrier_callback_c = mpi4py_barrier_func_type( mpi4py_barrier_callback )
@@ -341,18 +378,26 @@ mdi.MDI_Set_Mpi4py_Split_Callback.argtypes = [mpi4py_split_func_type]
 
 # define the python callback function
 def mpi4py_split_callback(color, key, mdi_comm, comm_flag):
-    global world_comm
-    global intra_code_comm
+    try:
 
-    # get the correct communicator, based on the comm_flag
-    if comm_flag == 0: # create an inter-code communicator
-        mpi4py_comms[mdi_comm] = world_comm.Split(color, key)
-    elif comm_flag == 1: # create an intra-code communicator
-        intra_code_comm = world_comm.Split(color, key)
-    else:
-        raise Exception("MDI Error: Unknown comm flag in mpi4py_split_callback")
+        global world_comm
+        global intra_code_comm
 
-    return 0
+        # get the correct communicator, based on the comm_flag
+        if comm_flag == 0: # create an inter-code communicator
+            mpi4py_comms[mdi_comm] = world_comm.Split(color, key)
+        elif comm_flag == 1: # create an intra-code communicator
+            intra_code_comm = world_comm.Split(color, key)
+        else:
+            raise Exception("MDI Error: Unknown comm flag in mpi4py_split_callback")
+
+        return 0
+
+    except Exception as e:
+
+        sys.stderr.write("MDI Error in mpi4py_split_callback: \n" + str(e) + "\n")
+        sys.stderr.flush()
+        return -1
 
 # define the python function that will set the callback function in c
 mpi4py_split_callback_c = mpi4py_split_func_type( mpi4py_split_callback )
@@ -372,7 +417,28 @@ def MDI_Init(arg1, comm):
     # prepend the _language option, so that MDI knows this is a Python code
     arg1 = "_language Python " + arg1
 
-    command = arg1.encode('utf-8')
+    # determine the communication method
+    args = arg1.split()
+    mdi_method = None
+    for i in range(len(args)):
+        if args[i] == "-method" and i < len(args) - 1:
+            mdi_method = args[i+1]
+    if not mdi_method:
+        raise Exception("MDI Error: Unable to find -method option")
+
+    if mdi_method == "MPI":
+        # ensure that mpi4py is available
+        if not use_mpi4py:
+            raise Exception("MDI Error: When using the MPI communication method, mpi4py must be available")
+
+        # ensure that numpy is available
+        if not found_numpy:
+            raise Exception("MDI Error: When using the MPI communication method, numpy must be available")
+
+        # check if MDI was responsible for initializing MPI
+        if comm is None:
+            comm = MPI.COMM_WORLD
+
     if comm is None:
         mpi_communicator_ptr = None
     else:
@@ -390,15 +456,6 @@ def MDI_Init(arg1, comm):
         else:
             raise Exception("MDI Error: An MPI communicator was passed to MPI_Init, but MPI4Py is not found")
 
-    # determine if the communication method is MPI
-    args = arg1.split()
-    mdi_method = None
-    for i in range(len(args)):
-        if args[i] == "-method" and i < len(args) - 1:
-            mdi_method = args[i+1]
-    if not mdi_method:
-        raise Exception("MDI Error: Unable to find -method option")
-
     # set the MPI4Py callback functions
     set_mpi4py_recv_callback()
     set_mpi4py_send_callback()
@@ -408,12 +465,8 @@ def MDI_Init(arg1, comm):
     set_mpi4py_barrier_callback()
     set_mpi4py_split_callback()
 
-    # if using MPI, ensure that numpy is available
-    if mdi_method == "MPI":
-        if not use_numpy:
-            raise Exception("MDI Error: When using the MPI communication method, numpy must be available")
-
     # call MDI_Init
+    command = arg1.encode('utf-8')
     ret = mdi.MDI_Init(ctypes.c_char_p(command), mpi_communicator_ptr )
     if ret != 0:
         raise Exception("MDI Error: MDI_Init failed")
@@ -438,43 +491,47 @@ def MDI_Accept_Communicator():
 mdi.MDI_Send.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.c_int, ctypes.c_int]
 mdi.MDI_Send.restype = ctypes.c_int
 def MDI_Send(arg1, arg2, arg3, arg4):
+    use_numpy = False
+    if found_numpy:
+        if type(arg1) is np.ndarray:
+            use_numpy = True
+
     if (arg3 == MDI_INT):
         arg_type = ctypes.c_int
         mdi_type = MDI_INT
+        if use_numpy:
+            data_temp = arg1.astype(np.int32)
+            data = data_temp.ctypes.data_as(ctypes.c_char_p)
     elif (arg3 == MDI_DOUBLE):
         arg_type = ctypes.c_double
         mdi_type = MDI_DOUBLE
+        if use_numpy:
+            data_temp = arg1.astype(np.float64)
+            data = data_temp.ctypes.data_as(ctypes.c_char_p)
+    elif (arg3 == MDI_BYTE):
+        arg_type = ctypes.c_char
+        mdi_type = MDI_BYTE
     elif (arg3 == MDI_CHAR):
         arg_type = ctypes.c_char
         mdi_type = MDI_CHAR
-    elif (arg3 == MDI_INT_NUMPY):
-        if not use_numpy:
-            raise Exception("MDI Error: Attempting to use a Numpy array, but the Numpy package was not found")
-        arg_type = ctypes.c_int
-        data = arg1.astype(np.int32)
-        data = data.ctypes.data_as(ctypes.c_char_p)
-        mdi_type = MDI_INT
-    elif (arg3 == MDI_DOUBLE_NUMPY):
-        if not use_numpy:
-            raise Exception("MDI Error: Attempting to use a Numpy array, but the Numpy package was not found")
-        arg_type = ctypes.c_double
-        data = arg1.astype(np.float64)
-        data = data.ctypes.data_as(ctypes.c_char_p)
-        mdi_type = MDI_DOUBLE
     else:
         raise Exception("MDI Error: Unrecognized datatype in MDI_Send")
 
     if arg3 == MDI_CHAR:
         data_temp = arg1.encode('utf-8')
         data = ctypes.c_char_p(data_temp)
+    elif arg3 == MDI_BYTE:
+        data = ctypes.c_char_p(arg1)
 
-    elif arg3 == MDI_INT or arg3 == MDI_DOUBLE:
+    elif (arg3 == MDI_INT or arg3 == MDI_DOUBLE or arg3 == MDI_BYTE) and not use_numpy:
         if not isinstance(arg1, list):
             if arg2 == 1:
                 if arg3 == MDI_DOUBLE:
                     data_temp = ctypes.pointer((ctypes.c_double)(arg1))
                 elif arg3 == MDI_INT:
                     data_temp = ctypes.pointer((ctypes.c_int)(arg1))
+                elif arg3 == MDI_BYTE:
+                    data_temp = ctypes.pointer((ctypes.c_char)(arg1))
                 data = ctypes.cast(data_temp, ctypes.POINTER(ctypes.c_char))
             else:
                 raise Exception("MDI Error: MDI_Send requires a list if length != 1 and datatype = MDI_INT or MDI_DOUBLE")
@@ -488,53 +545,52 @@ def MDI_Send(arg1, arg2, arg3, arg4):
 
 # MDI_Recv
 mdi.MDI_Recv.restype = ctypes.c_int
-def MDI_Recv(arg2, arg3, arg4):
+def MDI_Recv(arg2, arg3, arg4, buf = None):
+    if buf is None:
+        use_numpy = False
+    else:
+        use_numpy = True
+    if use_numpy and not found_numpy:
+        raise Exception("MDI Error: Attempting to use a Numpy array, but the Numpy package was not found")
     if (arg3 == MDI_INT):
-        mdi.MDI_Recv.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.c_int, ctypes.c_int]
+        if use_numpy:
+            mdi.MDI_Recv.argtypes = [np.ctypeslib.ndpointer(dtype=np.int32, flags='C_CONTIGUOUS'), 
+                                     ctypes.c_int, ctypes.c_int, ctypes.c_int]
+        else:
+            mdi.MDI_Recv.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.c_int, ctypes.c_int]
         arg_type = ctypes.c_int
         mdi_type = MDI_INT
     elif (arg3 == MDI_DOUBLE):
-        mdi.MDI_Recv.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.c_int, ctypes.c_int]
+        if use_numpy:
+            mdi.MDI_Recv.argtypes = [np.ctypeslib.ndpointer(dtype=np.float64, flags='C_CONTIGUOUS'), 
+                                     ctypes.c_int, ctypes.c_int, ctypes.c_int]
+        else:
+            mdi.MDI_Recv.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.c_int, ctypes.c_int]
         arg_type = ctypes.c_double
         mdi_type = MDI_DOUBLE
+    elif (arg3 == MDI_BYTE):
+        mdi.MDI_Recv.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.c_int, ctypes.c_int]
+        arg_type = ctypes.c_char
+        mdi_type = MDI_BYTE
     elif (arg3 == MDI_CHAR):
         mdi.MDI_Recv.argtypes = [ctypes.POINTER(ctypes.c_char), ctypes.c_int, ctypes.c_int, ctypes.c_int]
         arg_type = ctypes.c_char
         mdi_type = MDI_CHAR
-    elif (arg3 == MDI_INT_NUMPY):
-        if not use_numpy:
-            raise Exception("MDI Error: Attempting to use a Numpy array, but the Numpy package was not found")
-        mdi.MDI_Recv.argtypes = [np.ctypeslib.ndpointer(dtype=np.int32, ndim=1, flags='C_CONTIGUOUS'), 
-                                 ctypes.c_int, ctypes.c_int, ctypes.c_int]
-        arg_type = ctypes.c_int
-        mdi_type = MDI_INT
-    elif (arg3 == MDI_DOUBLE_NUMPY):
-        if not use_numpy:
-            raise Exception("MDI Error: Attempting to use a Numpy array, but the Numpy package was not found")
-        mdi.MDI_Recv.argtypes = [np.ctypeslib.ndpointer(dtype=np.float64, ndim=1, flags='C_CONTIGUOUS'), 
-                                 ctypes.c_int, ctypes.c_int, ctypes.c_int]
-        arg_type = ctypes.c_double
-        mdi_type = MDI_DOUBLE
-
-    if (arg3 == MDI_DOUBLE_NUMPY):
-        arg1 = np.zeros(arg2, dtype='float64')
-    elif (arg3 == MDI_INT_NUMPY):
-        arg1 = np.zeros(arg2, dtype='int32')
-    elif (arg3 == MDI_INT or arg3 == MDI_DOUBLE or arg3 == MDI_CHAR):
-        arg_size = ctypes.sizeof(arg_type)
-        arg1 = (ctypes.c_char*(arg2*arg_size))()
     else:
         raise Exception("MDI Error: Unrecognized datatype in MDI_Recv")
-    ret = mdi.MDI_Recv(arg1, arg2, ctypes.c_int(mdi_type), arg4)
+
+    if not use_numpy:
+        arg_size = ctypes.sizeof(arg_type)
+        buf = (ctypes.c_char*(arg2*arg_size))()
+
+    ret = mdi.MDI_Recv(buf, arg2, ctypes.c_int(mdi_type), arg4)
     if ret != 0:
         raise Exception("MDI Error: MDI_Recv failed")
 
-    if (arg3 == MDI_INT_NUMPY):
-        return arg1
-    elif (arg3 == MDI_DOUBLE_NUMPY):
-        return arg1
+    if use_numpy:
+        return None
 
-    result = ctypes.cast(arg1, ctypes.POINTER(arg_type*arg2)).contents
+    result = ctypes.cast(buf, ctypes.POINTER(arg_type*arg2)).contents
 
     if (arg3 == MDI_CHAR):
         # if this is an MDI_CHAR, convert it to a python string

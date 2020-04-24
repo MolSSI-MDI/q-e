@@ -12,11 +12,20 @@ try:
 except ImportError:
     use_numpy = False
 
-try:
-    from mpi4py import MPI
-    use_mpi4py = True
-except ImportError:
-    use_mpi4py = False
+# Check for a -nompi argument
+# This argument prevents the code from importing MPI
+nompi_flag = False
+for arg in sys.argv:
+    if arg == "-nompi":
+        nompi_flag = True
+
+use_mpi4py = False
+if not nompi_flag:
+    try:
+        from mpi4py import MPI
+        use_mpi4py = True
+    except ImportError:
+        pass
 
 def execute_command(command, comm, self):
 
@@ -26,12 +35,14 @@ def execute_command(command, comm, self):
         mdi.MDI_Send(self.natoms, 1, mdi.MDI_INT, comm)
     elif command == "<COORDS":
         mdi.MDI_Send(self.coords, 3 * self.natoms, mdi.MDI_DOUBLE, comm)
+    elif command == "<FORCES_B":
+        # Create NumPy byte array
+        double_size = np.dtype(np.float64).itemsize
+        forces_bytes = self.forces.tobytes()
+
+        mdi.MDI_Send(forces_bytes, 3 * self.natoms * double_size, mdi.MDI_BYTE, comm)
     elif command == "<FORCES":
-        if use_numpy:
-            datatype = mdi.MDI_DOUBLE_NUMPY
-        else:
-            datatype = mdi.MDI_DOUBLE
-        mdi.MDI_Send(self.forces, 3 * self.natoms, datatype, comm)
+        mdi.MDI_Send(self.forces, 3 * self.natoms, mdi.MDI_DOUBLE, comm)
     else:
         raise Exception("Error in engine_py.py: MDI command not recognized")
 
@@ -72,11 +83,12 @@ class MDIEngine:
             raise Exception("Must run engine_py.py as an ENGINE")
 
         # Register the supported commands
-        mdi.MDI_Register_Node("@GLOBAL")
-        mdi.MDI_Register_Command("@GLOBAL","EXIT")
-        mdi.MDI_Register_Command("@GLOBAL","<NATOMS")
-        mdi.MDI_Register_Command("@GLOBAL","<COORDS")
-        mdi.MDI_Register_Command("@GLOBAL","<FORCES")
+        mdi.MDI_Register_Node("@DEFAULT")
+        mdi.MDI_Register_Command("@DEFAULT","EXIT")
+        mdi.MDI_Register_Command("@DEFAULT","<NATOMS")
+        mdi.MDI_Register_Command("@DEFAULT","<COORDS")
+        mdi.MDI_Register_Command("@DEFAULT","<FORCES")
+        mdi.MDI_Register_Command("@DEFAULT","<FORCES_B")
         mdi.MDI_Register_Node("@FORCES")
         mdi.MDI_Register_Command("@FORCES","EXIT")
         mdi.MDI_Register_Command("@FORCES","<FORCES")

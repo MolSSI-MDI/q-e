@@ -30,6 +30,9 @@ int execute_command(const char* command, MDI_Comm comm, void* class_obj) {
   else if ( strcmp(command, "<FORCES") == 0 ) {
     MDI_Send(&forces, 3 * natoms, MDI_DOUBLE, comm);
   }
+  else if ( strcmp(command, "<FORCES_B") == 0 ) {
+    MDI_Send(&forces, 3 * natoms * sizeof(double), MDI_BYTE, comm);
+  }
   else {
     throw std::runtime_error("Unrecognized command.");
   }
@@ -82,11 +85,12 @@ int main(int argc, char **argv) {
   }
 
   // Set the list of supported commands
-  MDI_Register_Node("@GLOBAL");
-  MDI_Register_Command("@GLOBAL","EXIT");
-  MDI_Register_Command("@GLOBAL","<NATOMS");
-  MDI_Register_Command("@GLOBAL","<COORDS");
-  MDI_Register_Command("@GLOBAL","<FORCES");
+  MDI_Register_Node("@DEFAULT");
+  MDI_Register_Command("@DEFAULT","EXIT");
+  MDI_Register_Command("@DEFAULT","<NATOMS");
+  MDI_Register_Command("@DEFAULT","<COORDS");
+  MDI_Register_Command("@DEFAULT","<FORCES");
+  MDI_Register_Command("@DEFAULT","<FORCES_B");
   MDI_Register_Node("@FORCES");
   MDI_Register_Command("@FORCES","EXIT");
   MDI_Register_Command("@FORCES","<FORCES");
