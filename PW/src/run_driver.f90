@@ -623,7 +623,7 @@ CONTAINS
     !
     USE kinds,            ONLY : DP
     !
-    REAL(DP) :: cell_mdi(12)
+    REAL(DP) :: cell_mdi(9)
     !
     IF ( ionode ) THEN
        !
@@ -631,9 +631,9 @@ CONTAINS
        cellh = TRANSPOSE( cellh )
        !
        cell_mdi(1:9) = RESHAPE( cellh, (/9/))
-       cell_mdi(10:12) = 0.0_DP
+       !cell_mdi(10:12) = 0.0_DP
        !
-       CALL MDI_Send( cell_mdi, 12, MDI_DOUBLE, socket, ierr)
+       CALL MDI_Send( cell_mdi, 9, MDI_DOUBLE, socket, ierr)
        !
     END IF
     !
@@ -681,7 +681,7 @@ CONTAINS
     !
     WRITE(6,*)" @ DRIVER MODE: input coordinates"
     DO i=1, nat
-       WRITE(6,*)i,combuf(i*3+0),combuf(i*3+1),combuf(i*3+2)
+       WRITE(6,*)i,combuf((i-1)*3+1),combuf((i-1)*3+2),combuf((i-1)*3+3)
     END DO
     !
     ! ... Convert the incoming configuration to the internal pwscf format

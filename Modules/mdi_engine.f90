@@ -122,7 +122,7 @@ CONTAINS
     END IF
     !
     DO ir = 1, dfftp%nnr
-       IF ( ionode ) WRITE(stdout,*)'VLTOT: ',ir,vltot(ir),potential(ir)
+       !IF ( ionode ) WRITE(stdout,*)'VLTOT: ',ir,vltot(ir),potential(ir)
        vltot(ir) = vltot(ir) + potential(ir + me_pool*dfftp%nnr)
     END DO
     !
