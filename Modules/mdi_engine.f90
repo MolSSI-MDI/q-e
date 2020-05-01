@@ -16,8 +16,9 @@ MODULE mdi_engine
                                MDI_Accept_Communicator, &
                                MDI_CHAR, MDI_DOUBLE, MDI_INT
   USE mp_global,        ONLY : mp_bcast, mp_sum, mp_barrier, intra_pool_comm
-  USE mp_pools,         ONLY : me_pool
+  USE mp_pools,         ONLY : me_pool, nproc_pool
   USE mp_world,         ONLY : world_comm
+  USE mp,               ONLY : mp_gather
   !
   IMPLICIT NONE
   !
@@ -83,7 +84,7 @@ CONTAINS
     !   This routine adds an electrostatic field due to MM atoms to the 
     !   local potential.
     !
-    !USE cell_base,          ONLY : alat, at, omega
+    USE cell_base,          ONLY : alat, at, omega
     !USE ions_base,          ONLY : zv, tau
     !USE constants,          ONLY : e2, eps8, bohr_radius_angs
     !USE io_global,          ONLY : stdout,ionode
@@ -98,32 +99,83 @@ CONTAINS
     !
     ! local variables
     !
-    !INTEGER :: idx, i, j, k, j0, k0
-    INTEGER :: ir
-    INTEGER :: ngrid
+    INTEGER :: idx, i, j, k, j0, k0
+    INTEGER :: ir, ipot
+    INTEGER :: ngrid, mygrid, mygrid_displ
+    INTEGER :: mygrid_all(nproc_pool)
     !
     !INTEGER :: i_mm, i_qm, ipol, ii_qm
     ! r_nn is the cutoff for the nearest neighbour
-    !REAL(DP) :: s(3),r(3), dist, r_nn, fder
+    REAL(DP) :: s(3),r(3), dist, r_nn, fder
     !
     !REAL(DP) :: esfcontrib
     !
     !!!!
     !
     IF ( ionode ) WRITE(stdout,*)'In mdi_add_potential'
+    IF ( ionode ) WRITE(stdout,*)'VLTOT size: ',size(vltot)
     !
     IF ( .not.is_mdi .or. npotential.eq.0 ) RETURN
     !
-    ngrid = dfftp%nnr
+    !ngrid = dfftp%nnr
+    mygrid = 0
+    j0 = dfftp%my_i0r2p ; k0 = dfftp%my_i0r3p
+    DO ir = 1, dfftp%nnr
+       idx = ir -1
+       k   = idx / (dfftp%nr1x * dfftp%my_nr2p )
+       idx = idx - (dfftp%nr1x * dfftp%my_nr2p ) * k
+       k   = k + k0
+       IF ( k .GE. dfftp%nr3 ) CYCLE
+       j   = idx / dfftp%nr1x
+       idx = idx - dfftp%nr1x*j
+       j   = j + j0
+       IF ( j .GE. dfftp%nr2 ) CYCLE
+       i   = idx
+       IF ( i .GE. dfftp%nr1 ) CYCLE
+       mygrid = mygrid + 1
+    END DO
+    CALL mp_gather(mygrid, mygrid_all, 0, intra_pool_comm)
+    CALL mp_bcast(mygrid_all, 0, intra_pool_comm)
+    mygrid_displ = 0
+    DO ir = 0, me_pool - 1
+       mygrid_displ = mygrid_displ + mygrid_all(ir+1)
+    END DO
+    ngrid = mygrid
     CALL mp_sum( ngrid, intra_pool_comm )
+    IF ( ionode ) WRITE(stdout,*)'VLTOT NGRID: ',ngrid
     IF ( ngrid .ne. npotential ) THEN
        WRITE(*,*)'QE currently only supports the >NPOTENTIAL command when NPOTENTIAL equals DFFTP%NNR'
+       WRITE(*,*)'   NPOTENTIAL, DFFTP%NNR: ',npotential,ngrid
        STOP 270
     END IF
     !
+    !!!DO ir = 1, dfftp%nnr
+    !!!   !IF ( ionode ) WRITE(stdout,*)'VLTOT: ',ir,vltot(ir),potential(ir)
+    !!!   vltot(ir) = vltot(ir) + potential(ir + me_pool*dfftp%nnr)
+    !!!END DO
+    ipot = 0
     DO ir = 1, dfftp%nnr
-       !IF ( ionode ) WRITE(stdout,*)'VLTOT: ',ir,vltot(ir),potential(ir)
-       vltot(ir) = vltot(ir) + potential(ir + me_pool*dfftp%nnr)
+       idx = ir -1
+       k   = idx / (dfftp%nr1x * dfftp%my_nr2p )
+       idx = idx - (dfftp%nr1x * dfftp%my_nr2p ) * k
+       k   = k + k0
+       IF ( k .GE. dfftp%nr3 ) CYCLE
+       j   = idx / dfftp%nr1x
+       idx = idx - dfftp%nr1x*j
+       j   = j + j0
+       IF ( j .GE. dfftp%nr2 ) CYCLE
+       i   = idx
+       IF ( i .GE. dfftp%nr1 ) CYCLE
+       !
+       s(1) = DBLE(i)/DBLE(dfftp%nr1)
+       s(2) = DBLE(j)/DBLE(dfftp%nr2)
+       s(3) = DBLE(k)/DBLE(dfftp%nr3)
+       !
+       r=matmul(at,s)
+       !
+       ipot = ipot + 1
+       vltot(ir) = vltot(ir) + potential(ipot + mygrid_displ)
+       !
     END DO
     !
     !!!!
