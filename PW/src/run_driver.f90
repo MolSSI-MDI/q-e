@@ -65,6 +65,7 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
   !LOGICAL :: is_mdi = .false.
   CHARACTER(len=1024) :: mdi_options
   INTEGER :: ierr
+  LOGICAL :: scf_current=.false.
 
   !>>>
   !----------------------------------------------------------------------------
@@ -184,15 +185,19 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         isinit=.true.
         !
      CASE( ">NATOMS" )
+        scf_current = .false.
         CALL set_nat()
         !
      CASE( ">MM_NATOMS" )
+        scf_current = .false.
         CALL read_nat_mm()
         !
      CASE( ">NTYPES" )
+        scf_current = .false.
         CALL read_ntypes()
         !
      CASE( ">CELL" )
+        scf_current = .false.
         CALL read_cell()
         CALL update_cell()
         !
@@ -200,36 +205,46 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         CALL send_cell()
         !
      CASE( ">COORDS" )
+        scf_current = .false.
         CALL read_coordinates()
         !
      CASE( "<COORDS" )
         CALL send_coordinates()
         !
      CASE( ">QMMM_MODE" )
+        scf_current = .false.
         CALL read_qmmm_mode()
         !
      CASE( ">MM_CELL" )
+        scf_current = .false.
         CALL read_cell_mm()
         !
      CASE( ">MM_CHARGES" )
+        scf_current = .false.
         CALL read_mm_charge(socket)
         !
      CASE( ">MM_MASK" )
+        scf_current = .false.
         CALL read_mm_mask(socket)
         !
      CASE( ">MM_COORDS" )
+        scf_current = .false.
         CALL read_mm_coord(socket)
         !
      CASE( ">MM_TYPES" )
+        scf_current = .false.
         CALL read_types(socket)
         !
      CASE( ">MM_MASSES" )
+        scf_current = .false.
         CALL read_mass(socket)
         !
      CASE( ">ARADII" )
+        scf_current = .false.
         CALL read_aradii(socket)
         !
      CASE( "RECENTER" )
+        scf_current = .false.
         CALL qmmm_center_molecule()
         CALL qmmm_minimum_image()
         IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: recentered coords ",tau
@@ -256,15 +271,20 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
         CALL send_cdensity(socket, dfftp)
         !
      CASE( "<DENSITY" )
+        IF ( .not. scf_current ) THEN
+           CALL run_scf()
+        END IF
         CALL send_density(socket, rho%of_r, nspin, dfftp)
         !
      CASE( "<CHARGES" )
         CALL send_charges()
         !
      CASE( ">NPOTENTIAL" )
+        scf_current = .false.
         CALL recv_npotential(socket)
         !
      CASE( ">POTENTIAL" )
+        scf_current = .false.
         CALL recv_potential(socket)
         !
      CASE( "EXIT" )
@@ -765,6 +785,7 @@ CONTAINS
        CALL punch( 'all' )
        CALL stop_run( conv_elec )
     ENDIF
+    scf_current = .true.
     !
   END SUBROUTINE run_scf
   !
@@ -772,9 +793,10 @@ CONTAINS
   SUBROUTINE write_energy()
     !
     ! ... Run an SCF calculation
-    ! NOTE: SHOULD CHECK WHETHER THIS IS NECESSARY
     !
-    CALL run_scf()
+    IF ( .not. scf_current ) THEN
+       CALL run_scf()
+    END IF
     !
     ! ... Write the total energy in a.u.
     !
@@ -787,9 +809,10 @@ CONTAINS
   SUBROUTINE write_forces()
     !
     ! ... Run an SCF calculation
-    ! NOTE: SHOULD CHECK WHETHER THIS IS NECESSARY
     !
-    CALL run_scf()
+    IF ( .not. scf_current ) THEN
+       CALL run_scf()
+    END IF
     !
     ! ... Compute forces
     !
