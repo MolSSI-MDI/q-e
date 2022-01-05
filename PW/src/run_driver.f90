@@ -264,6 +264,9 @@ SUBROUTINE run_driver ( srvaddress, exit_status )
      CASE( "<MM_FORCES" )
         CALL write_mm_force(socket, rho%of_r, nspin, dfftp)
         !
+     CASE( "<NATOMS" )
+        CALL send_natoms()
+        !
      CASE( "<NDENSITY" )
         CALL send_ndensity(socket, dfftp)
         !
@@ -830,6 +833,13 @@ CONTAINS
   END SUBROUTINE write_forces
   !
   !
+  SUBROUTINE send_natoms()
+    !
+    ! ... Send the number of atoms in the system
+    !
+    IF ( ionode ) CALL MDI_Send( nat, 1, MDI_INT, socket, ierr )
+    !
+  END SUBROUTINE send_natoms
   !>>>
   !
   !
