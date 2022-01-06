@@ -114,7 +114,8 @@ makov_payne.o
 LOBJS = \
 entropy.o 
 
-QEMODS=../../Modules/libqemod.a
+QEMODS=../../Modules/libqemod.a \
+       ../../mdi/build/MDI_Library/libmdi.a
 QEFFT=../../FFTXlib/libqefft.a
 QELA=../../LAXlib/libqela.a
 UTIL=../../UtilXlib/libutil.a

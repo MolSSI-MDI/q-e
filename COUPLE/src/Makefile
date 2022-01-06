@@ -9,6 +9,7 @@ TLDEPS=pw cp
 
 COUPLEOBJS= \
 libpwscf.o \
+libplugin.o \
 libcpv.o \
 libqemod.o
 
@@ -30,14 +31,22 @@ clean :
 # we currently need to specify explicit dependencies here
 libpwscf.o: libpwscf.f90 ../../Modules/environment.o ../../Modules/mp_global.o \
 	../../Modules/read_input.o ../../Modules/command_line_options.o \
-	../../UtilXlib/parallel_include.o
+	../../UtilXlib/parallel_include.o \
+	../../mdi/build/MDI_Library/libmdi.a
+
+libplugin.o: libplugin.f90 ../../Modules/environment.o ../../Modules/mp_global.o \
+	../../Modules/read_input.o ../../Modules/command_line_options.o \
+	../../UtilXlib/parallel_include.o \
+	../../mdi/build/MDI_Library/libmdi.a
 
 libcpv.o: libcpv.f90 ../../Modules/environment.o ../../Modules/mp_global.o \
 	../../Modules/read_input.o ../../Modules/command_line_options.o \
 	../../Modules/mp_images.o ../../Modules/check_stop.o \
 	../../Modules/io_global.o ../../UtilXlib/parallel_include.o \
-	../../CPV/src/input.o
+	../../CPV/src/input.o \
+	../../mdi/build/MDI_Library/libmdi.a
 
-libqemod.o: libqemod.f90 ../../Modules/qmmm.o
+libqemod.o: libqemod.f90 ../../Modules/qmmm.o \
+	../../mdi/build/MDI_Library/libmdi.a
 
 # DO NOT DELETE
