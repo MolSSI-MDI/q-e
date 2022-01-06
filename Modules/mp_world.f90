@@ -85,7 +85,7 @@ CONTAINS
     !<<<
     IF ( PRESENT(mdi_options) ) THEN
        IF ( trim(mdi_options) .ne. ' ' ) THEN
-          CALL MDI_Init(mdi_options, world_comm, mdi_ierr)
+          CALL MDI_Init(mdi_options, mdi_ierr)
        END IF
     END IF
     !>>>
