@@ -15,14 +15,32 @@ typedef struct library_data_struct {
   /*! \brief Name of the next command to be executed on this code.
   This is only used by engines. */
   char command[COMMAND_LENGTH];
-  /*! \brief Buffer used for communication of data */
-  void* buf;
   /*! \brief Flag whether buf is allocated */
   int buf_allocated;
   /*! \brief Flag whether the next MDI_Send call should trigger execution of the engine's command */
   int execute_on_send;
+  /*! \brief MPI intra-communicator for the engine */
+  MPI_Comm mpi_comm;
+  /*! \brief Pointer to the class object that is used for the driver_node_callback function */
+  void* driver_callback_obj;
+  /*! \brief Function pointer to the driver node's callback function */
+  MDI_Driver_node_callback_t driver_node_callback;
+  /*! \brief Buffer used for communication of data */
+  void* buf;
 } library_data;
 
+typedef int (*MDI_Plugin_init_t)();
+
+int enable_plug_support();
+int plug_on_selection();
+int plug_on_accept_communicator();
+int plug_on_send_command(const char* command, MDI_Comm comm, int* skip_flag);
+int plug_after_send_command(const char* command, MDI_Comm comm);
+int plug_on_recv_command(MDI_Comm comm);
+
+int library_launch_plugin(const char* plugin_name, const char* options, void* mpi_comm_ptr,
+                          MDI_Driver_node_callback_t driver_node_callback,
+                          void* driver_callback_object);
 int library_initialize();
 int library_accept_communicator();
 int library_set_driver_current();
