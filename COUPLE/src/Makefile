@@ -9,7 +9,6 @@ TLDEPS=pw cp
 
 COUPLEOBJS= \
 libpwscf.o \
-libplugin.o \
 libcpv.o \
 libqemod.o
 
@@ -22,7 +21,7 @@ libqecouple.a : $(COUPLEOBJS)
 	$(RANLIB) $@
 
 libqecouple.so: $(COUPLEOBJS)
-	$(MPIF90) -shared -o libqecouple.so $(COUPLEOBJS) $(F90FLAGS)
+	$(MPIF90) -shared -o libqecouple.so libplugin.o $(F90FLAGS)
 
 tldeps :
 	if test -n "$(TLDEPS)" ; then \
