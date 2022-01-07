@@ -20,7 +20,7 @@ libqecouple.a : $(COUPLEOBJS)
 	$(AR) $(ARFLAGS) $@ $?
 	$(RANLIB) $@
 
-libqecouple.so: $(COUPLEOBJS)
+libqecouple.so: libplugin.o
 	$(MPIF90) -shared -o libqecouple.so libplugin.o $(F90FLAGS)
 
 tldeps :
