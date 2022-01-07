@@ -1,4 +1,5 @@
-MODULE MDI_PLUGIN
+  FUNCTION MDI_Plugin_init_qecouple() bind ( C, name="MDI_Plugin_init_qecouple" )
+  !USE mpi
   USE ISO_C_binding
   USE mdi,              ONLY : MDI_Init, MDI_Send, MDI_INT, MDI_CHAR, MDI_NAME_LENGTH, &
        MDI_Accept_communicator, MDI_Recv_command, MDI_Recv, &
@@ -17,10 +18,7 @@ MODULE MDI_PLUGIN
 
   ! Flag to terminate MDI response function
   LOGICAL :: terminate_flag = .false.
-
-CONTAINS
-
-  FUNCTION MDI_Plugin_init_qecouple() bind ( C, name="MDI_Plugin_init_qecouple" )
+  
     INTEGER :: MDI_Plugin_init_qecouple
     INTEGER :: ierr
     INTEGER :: argc
@@ -40,19 +38,24 @@ CONTAINS
              mdi_options_found = .true.
           ELSE
              WRITE(6,*)'ERROR: argument to -mdi option not provided'
-             MDI_Plugin_init_engine_f90 = 1
+             MDI_Plugin_init_qecouple = 1
              RETURN
           END IF
        END IF
     END DO
     IF ( .not. mdi_options_found ) THEN
        WRITE(6,*)'ERROR: -mdi option not provided'
-       MDI_Plugin_init_engine_f90 = 1
+       MDI_Plugin_init_qecouple = 1
        RETURN
     END IF
+
+    ! Call MDI_Init
+    !world_comm = MPI_COMM_WORLD
+    CALL MDI_Init(mdi_options, ierr)
+
+    ! Get the MPI intra-communicator over which this plugin will run
+    CALL MDI_MPI_get_world_comm(world_comm, ierr);
 
     MDI_Plugin_init_qecouple = 0
 
   END FUNCTION MDI_Plugin_init_qecouple
-
-END MODULE MDI_PLUGIN
