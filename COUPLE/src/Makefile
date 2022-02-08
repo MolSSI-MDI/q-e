@@ -21,7 +21,7 @@ libqecouple.a : $(COUPLEOBJS)
 	$(RANLIB) $@
 
 libqecouple.so: libplugin.o
-	$(MPIF90) -shared -o libqecouple.so libplugin.o $(F90FLAGS)
+	$(MPIF90) -Wl,--whole-archive -shared -o libqecouple.so libplugin.o $(F90FLAGS)
 
 tldeps :
 	if test -n "$(TLDEPS)" ; then \

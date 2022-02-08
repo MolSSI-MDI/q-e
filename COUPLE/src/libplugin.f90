@@ -13,6 +13,11 @@ MODULE MDI_IMPLEMENTATION
        MDI_ENGINE, MDI_Get_role, MDI_Register_command, MDI_Register_node, &
        MDI_Register_callback, MDI_COMMAND_LENGTH, MDI_MPI_get_world_comm, &
        MDI_Plugin_get_argc, MDI_Plugin_get_arg
+  USE environment,       ONLY : environment_start
+  USE mp_global,         ONLY : mp_startup
+  USE read_input,        ONLY : read_input_file
+  USE command_line_options, ONLY: set_command_line
+  USE parallel_include
 
   ! MDI Communicator to the driver
   INTEGER :: comm
@@ -30,6 +35,9 @@ MODULE MDI_IMPLEMENTATION
     CHARACTER(LEN=1024) :: option
     CHARACTER(LEN=1024) :: mdi_options
     LOGICAL :: mdi_options_found
+
+    INTEGER :: nim, npt, npl, nta, nbn, ndg
+    CHARACTER(LEN=80)      :: infile
 
     WRITE(6,*)"IN PLUGIN_INIT"
     FLUSH(6)
@@ -62,6 +70,23 @@ MODULE MDI_IMPLEMENTATION
 
     ! Get the MPI intra-communicator over which this plugin will run
     CALL MDI_MPI_get_world_comm(world_comm, ierr);
+
+
+    ! SHOULD GET THESE THROUG GET ARG
+    nim = 1
+    npl = 1
+    nta = 1
+    nbn = 1
+    ndg = 1
+    !
+    CALL set_command_line( nimage=nim, npool=npl, ntg=nta, &
+         nband=nbn, ndiag=ndg )
+    !CALL mp_startup ( my_world_comm=world_comm )
+    !CALL environment_start ( 'PWSCF' )
+    !
+    !CALL read_input_file ('PW', infile )
+    !
+
 
     MDI_Plugin_init_qecouple = 0
 
