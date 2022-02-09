@@ -4,7 +4,7 @@ MODULE MDI_IMPLEMENTATION
 
   CONTAINS
 
-  FUNCTION MDI_Plugin_init_qecouple() bind ( C, name="MDI_Plugin_init_qecouple" )
+  FUNCTION MDI_Plugin_init_plugin() bind ( C, name="MDI_Plugin_init_plugin" )
   USE mpi
   USE ISO_C_binding
   USE mdi,              ONLY : MDI_Init, MDI_Send, MDI_INT, MDI_CHAR, MDI_NAME_LENGTH, &
@@ -28,7 +28,7 @@ MODULE MDI_IMPLEMENTATION
   ! Flag to terminate MDI response function
   LOGICAL :: terminate_flag = .false.
 
-    INTEGER :: MDI_Plugin_init_qecouple
+    INTEGER :: MDI_Plugin_init_plugin
     INTEGER :: ierr
     INTEGER :: argc
     INTEGER :: iarg
@@ -53,14 +53,14 @@ MODULE MDI_IMPLEMENTATION
              mdi_options_found = .true.
           ELSE
              WRITE(6,*)'ERROR: argument to -mdi option not provided'
-             MDI_Plugin_init_qecouple = 1
+             MDI_Plugin_init_plugin = 1
              RETURN
           END IF
        END IF
     END DO
     IF ( .not. mdi_options_found ) THEN
        WRITE(6,*)'ERROR: -mdi option not provided'
-       MDI_Plugin_init_qecouple = 1
+       MDI_Plugin_init_plugin = 1
        RETURN
     END IF
 
@@ -88,7 +88,7 @@ MODULE MDI_IMPLEMENTATION
     !
 
 
-    MDI_Plugin_init_qecouple = 0
+    MDI_Plugin_init_plugin = 0
 
-  END FUNCTION MDI_Plugin_init_qecouple
+  END FUNCTION MDI_Plugin_init_plugin
 END MODULE MDI_IMPLEMENTATION
