@@ -38,7 +38,10 @@ libplugin.so: libplugin.o
         ../../UtilXlib/libutil.a \
         ../../FFTXlib/libqefft.a \
         ../../LAXlib/libqela.a \
+        ../../dft-d3/libdftd3qe.a \
+        ../../KS_Solvers/libks_solvers.a \
         ../../clib/clib.a \
+        ../../PW/src/libpw.a \
         ../../FoX/lib/libFoX_common.a \
         ../../FoX/lib/libFoX_dom.a \
         ../../FoX/lib/libFoX_fsys.a \

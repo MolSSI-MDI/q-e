@@ -92,7 +92,7 @@ MODULE MDI_IMPLEMENTATION
     ! Start a PW calculation, which will listen for MDI commands
     !
     retval = 0
-    !CALL run_pwscf  ( retval )
+    CALL run_pwscf  ( retval )
     !
     MDI_Plugin_init_plugin = retval
     !
