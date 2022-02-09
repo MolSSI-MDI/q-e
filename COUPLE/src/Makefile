@@ -36,6 +36,9 @@ libplugin.so: libplugin.o
         -Wl,--whole-archive \
         ../../Modules/libqemod.a \
         ../../UtilXlib/libutil.a \
+        ../../FFTXlib/libqefft.a \
+        ../../LAXlib/libqela.a \
+        ../../clib/clib.a \
         ../../FoX/lib/libFoX_common.a \
         ../../FoX/lib/libFoX_dom.a \
         ../../FoX/lib/libFoX_fsys.a \
@@ -45,8 +48,8 @@ libplugin.so: libplugin.o
         ../../FoX/lib/libFoX_wkml.a \
         ../../FoX/lib/libFoX_wxml.a \
         -Wl,--no-whole-archive \
+	$(QELIBS) \
         $(F90FLAGS)
-#	$(QELIBS) \
 
 #libplugin.so: libplugin.o
 #	$(MPIF90) -Wl,--whole-archive -shared -o libplugin.so libplugin.o \
