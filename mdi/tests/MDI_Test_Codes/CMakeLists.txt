@@ -39,6 +39,30 @@ macro(link_against_mpi _TAR)
 endmacro(link_against_mpi _TAR)
 
 
+macro(link_against_mpi_c _TAR)
+   if( mpi STREQUAL "ON" )
+
+      #include MPI
+      string_to_list(MPI_C_COMPILE_OPTIONS   "${MPI_C_COMPILE_FLAGS}")
+      string_to_list(MPI_C_LINK_OPTIONS      "${MPI_C_LINK_FLAGS}")
+
+      target_include_directories(${_TAR} PRIVATE ${MPI_C_INCLUDE_PATH})
+      target_compile_options(${_TAR} PRIVATE ${MPI_C_COMPILE_OPTIONS})
+      target_link_libraries(${_TAR} PRIVATE ${MPI_C_LIBRARIES} ${MPI_C_LINK_OPTIONS})
+
+   elseif( mpi STREQUAL "OFF" )
+
+      message( "Compiling without MPI." )
+      target_include_directories(${_TAR} PRIVATE ${CMAKE_BINARY_DIR}/tests/MDI_Test_Codes/STUBS_MPI/)
+
+   else()
+
+      message( FATAL_ERROR "Value of mpi not recognized. Accepted values are: ON; OFF." )
+
+   endif()
+endmacro(link_against_mpi_c _TAR)
+
+
 
 # Macro to link target to MPI (Fortran version)
 
@@ -71,6 +95,7 @@ include_directories( ${mdi_include_path} )
 
 
 
+add_subdirectory(driver_plug_c)
 if ( use_CXX )
    add_subdirectory(driver_cxx)
    add_subdirectory(driver_serial_cxx)

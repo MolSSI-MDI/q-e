@@ -14,14 +14,49 @@ libqemod.o
 
 ########################################################################
 
-all : tldeps libqecouple.a libqecouple.so
+all : tldeps libqecouple.a libplugin.so
+#all : tldeps libplugin.so
 
 libqecouple.a : $(COUPLEOBJS)
 	$(AR) $(ARFLAGS) $@ $?
 	$(RANLIB) $@
 
-libqecouple.so: libplugin.o
-	$(MPIF90) -Wl,--whole-archive -shared -o libqecouple.so libplugin.o $(F90FLAGS)
+#libplugin.so: libplugin.o
+#	$(MPIF90) -Wl,--whole-archive -shared -o libplugin.so libplugin.o $(F90FLAGS)
+
+#libplugin.so: libplugin.o
+#	$(MPIF90) -shared -o libplugin.so libplugin.o $(F90FLAGS) \
+#        -L../../mdi/build/MDI_Library/ -Wl,-rpath,../../mdi/build/MDI_Library/ -lmdi \
+#        -Wl,--whole-archive \
+#        -L../../Modules -Wl,-rpath,/repo/build/q-e/Modules -lqemod \
+#        -Wl,--no-whole-archive
+
+libplugin.so: libplugin.o
+	$(MPIF90) -shared -o libplugin.so libplugin.o \
+        -Wl,--whole-archive \
+        ../../Modules/libqemod.a \
+        ../../UtilXlib/libutil.a \
+        -Wl,--no-whole-archive \
+	$(QELIBS) \
+        $(F90FLAGS)
+
+#libplugin.so: libplugin.o
+#	$(MPIF90) -Wl,--whole-archive -shared -o libplugin.so libplugin.o \
+#        -fPIC -x f95-cpp-input -fopenmp -D__FFTW -D__MPI \
+#        -I/repo/build/q-e//include \
+#        -I/repo/build/q-e//FoX/finclude \
+#        -I/repo/build/q-e//S3DE/iotk/include/ \
+#        -I/repo/build/q-e//iotk/src -I/repo/build/q-e//Modules \
+#        -I/repo/build/q-e//FFTXlib \
+#        -I/repo/build/q-e//LAXlib \
+#        -I/repo/build/q-e//UtilXlib \
+#        -I/repo/build/q-e//FoX/finclude \
+#        -I/repo/build/q-e//mdi/build/MDI_Library \
+#        -I../../CPV/src
+
+#libplugin.so: libplugin.o
+#	$(MPIF90) -shared -o libplugin.so libplugin.o \
+        -fPIC -x f95-cpp-input -fopenmp -D__FFTW -D__MPI
 
 tldeps :
 	if test -n "$(TLDEPS)" ; then \

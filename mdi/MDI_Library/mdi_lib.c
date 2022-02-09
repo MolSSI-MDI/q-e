@@ -184,6 +184,8 @@ int plug_on_recv_command(MDI_Comm comm) {
 int library_launch_plugin(const char* plugin_name, const char* options, void* mpi_comm_ptr,
                           MDI_Driver_node_callback_t driver_node_callback,
                           void* driver_callback_object) {
+  printf("JJJJJJJJJJJJJJJJJJJJJJJ\n");
+  fflush(stdout);
   int ret;
   int driver_code_id = current_code;
   code* this_code = get_code(driver_code_id);
@@ -330,8 +332,14 @@ int library_launch_plugin(const char* plugin_name, const char* options, void* mp
 #else
   // Attempt to open a library with a .so extension
   snprintf(plugin_path, PLUGIN_PATH_LENGTH, "%s/lib%s.so", this_code->plugin_path, plugin_name);
+  printf("LOOKING IN: %s\n", plugin_path);
+  fflush(stdout);
   void* plugin_handle = dlopen(plugin_path, RTLD_NOW);
+  printf("AFTER DLOPEN: %s\n", plugin_path);
+  fflush(stdout);
   if ( ! plugin_handle ) {
+    printf("FAILED. LOOKING FOR DYLIB.\n");
+    fflush(stdout);
 
     // Attempt to open a library with a .dylib extension
     snprintf(plugin_path, PLUGIN_PATH_LENGTH, "%s/lib%s.dylib", this_code->plugin_path, plugin_name);
@@ -341,9 +349,12 @@ int library_launch_plugin(const char* plugin_name, const char* options, void* mp
       free( plugin_path );
       free( plugin_init_name );
       mdi_error("Unable to open MDI plugin");
+      fflush(stdout);
       return -1;
     }
   }
+  printf("OPENED!\n");
+  fflush(stdout);
 
   // Load a plugin's initialization function
   MDI_Plugin_init_t plugin_init = (MDI_Plugin_init_t) (intptr_t) dlsym(plugin_handle, plugin_init_name);
@@ -352,8 +363,11 @@ int library_launch_plugin(const char* plugin_name, const char* options, void* mp
     free( plugin_init_name );
     dlclose( plugin_handle );
     mdi_error("Unable to load MDI plugin init function");
+    fflush(stdout);
     return -1;
   }
+  printf("LOADED INIT!\n");
+  fflush(stdout);
 #endif
 
   // Initialize an instance of the plugin
@@ -372,6 +386,8 @@ int library_launch_plugin(const char* plugin_name, const char* options, void* mp
 
   }
 
+  printf("END PLUGIN MODE\n");
+  fflush(stdout);
   /*************************************************/
   /**************** END PLUGIN MODE ****************/
   /*************************************************/
