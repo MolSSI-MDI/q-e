@@ -36,8 +36,10 @@ MODULE MDI_IMPLEMENTATION
     CHARACTER(LEN=1024) :: mdi_options
     LOGICAL :: mdi_options_found
 
-    INTEGER :: nim, npt, npl, nta, nbn, ndg
+    INTEGER                :: nim, npt, npl, nta, nbn, ndg
     CHARACTER(LEN=80)      :: infile
+    INTEGER                :: retval
+
 
     WRITE(6,*)"IN PLUGIN_INIT"
     FLUSH(6)
@@ -81,14 +83,18 @@ MODULE MDI_IMPLEMENTATION
     !
     CALL set_command_line( nimage=nim, npool=npl, ntg=nta, &
          nband=nbn, ndiag=ndg )
-    !CALL mp_startup ( my_world_comm=world_comm )
-    !CALL environment_start ( 'PWSCF' )
+    CALL mp_startup ( my_world_comm=world_comm )
+    CALL environment_start ( 'PWSCF' )
     !
-    !CALL read_input_file ('PW', infile )
+    infile = '/repo/tests/water/qe.in'
+    CALL read_input_file ('PW', infile )
     !
-
-
-    MDI_Plugin_init_plugin = 0
-
+    ! Start a PW calculation, which will listen for MDI commands
+    !
+    retval = 0
+    !CALL run_pwscf  ( retval )
+    !
+    MDI_Plugin_init_plugin = retval
+    !
   END FUNCTION MDI_Plugin_init_plugin
 END MODULE MDI_IMPLEMENTATION
