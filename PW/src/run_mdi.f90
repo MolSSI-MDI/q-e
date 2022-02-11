@@ -7,12 +7,32 @@
 !
 !----------------------------------------------------------------------------
 MODULE run_mdi
-
+  !
+  USE io_global,        ONLY : ionode, ionode_id
+  USE cell_base,        ONLY : alat, at, omega, bg
+  USE mdi,              ONLY : MDI_Send, MDI_Recv, MDI_Recv_Command, &
+                               MDI_Accept_Communicator, &
+                               MDI_CHAR, MDI_DOUBLE, MDI_INT, &
+                               MDI_Set_execute_command_func
+  !
   USE ISO_C_BINDING
+  !
   IMPLICIT NONE
   SAVE
+  !
+  PRIVATE
+  !
+  REAL*8, ALLOCATABLE :: combuf(:)
+  REAL*8              :: omega_reset
+  INTEGER             :: socket
+  INTEGER             :: nat
+  INTEGER             :: rid, rid_old=-1
+  LOGICAL :: scf_current=.false.
+  REAL *8 :: cellh(3,3), mtxbuffer(9)
+  LOGICAL :: firststep
 
 CONTAINS
+
 
   SUBROUTINE mdi_execute_command(command, mdi_comm, ierr)
     USE io_global,        ONLY : ionode
@@ -29,15 +49,13 @@ CONTAINS
     ! Local variables
     INTEGER, PARAMETER :: MSGLEN=12
     REAL*8, PARAMETER :: gvec_omega_tol=1.0D-1
-    LOGICAL :: isinit=.false., hasdata=.false., exst, firststep
+    LOGICAL :: isinit=.false., hasdata=.false., exst
     CHARACTER*12 :: header
     CHARACTER*1024 :: parbuffer
-    INTEGER :: socket, nat, rid, ccmd, i, info, rid_old=-1
-    REAL*8 :: sigma(3,3), omega_reset, at_reset(3,3), dist_reset, ang_reset
-    REAL *8 :: cellh(3,3), cellih(3,3), vir(3,3), pot, mtxbuffer(9)
-    REAL*8, ALLOCATABLE :: combuf(:)
+    INTEGER :: nat, rid, ccmd, i, info, rid_old=-1
+    REAL*8 :: sigma(3,3), at_reset(3,3), dist_reset, ang_reset
+    REAL *8 :: cellih(3,3), vir(3,3), pot
     REAL*8 :: dist_ang(6), dist_ang_reset(6)
-    LOGICAL :: scf_current=.false.
     WRITE(6,*)'--------------------------------------'
     WRITE(6,*)'--------------------------------------'
     WRITE(6,*)'IN MDI_EXECUTE_COMMAND'
@@ -47,38 +65,6 @@ CONTAINS
     FLUSH(6)
 
      SELECT CASE ( trim( command ) )
-     CASE( "STATUS" )
-        !
-        IF (ionode) THEN  
-           IF (hasdata) THEN
-              CALL writebuffer( socket, "HAVEDATA    ", MSGLEN )
-           ELSE IF (isinit) THEN
-              CALL writebuffer( socket, "READY       ", MSGLEN )
-           ELSE IF (.not. isinit) THEN
-              CALL writebuffer( socket, "NEEDINIT    ", MSGLEN )
-           ELSE
-              ierr = 129
-              RETURN
-           END IF
-        END IF
-        !
-     CASE( "INIT" )
-        CALL driver_init()
-        isinit=.true.
-        !
-     CASE( "POSDATA" )
-        CALL driver_posdata()
-        hasdata=.true.
-        !
-     CASE( "GETFORCE" )
-        CALL driver_getforce()
-        !
-        ! ... resets init to get replica index again at next step
-        !
-        isinit = .false.
-        hasdata=.false.
-        !
-     !<<<
      CASE( ">RID" )
         CALL set_replica_id()
         isinit=.true.
@@ -217,7 +203,6 @@ SUBROUTINE mdi_listen ( srvaddress, exit_status, mdi_options )
   USE cell_base,        ONLY : alat, at, omega, bg
   USE cellmd,           ONLY : omega_old, at_old, calc
   USE force_mod,        ONLY : force
-  USE ener,             ONLY : etot
   USE f90sockets,       ONLY : readbuffer, writebuffer
   USE extrapolation,    ONLY : update_file, update_pot
   USE io_files,         ONLY : iunupdate, nd_nmbr, prefix, tmp_dir, postfix, &
@@ -233,10 +218,6 @@ SUBROUTINE mdi_listen ( srvaddress, exit_status, mdi_options )
   USE lsda_mod,         ONLY : nspin
   USE fft_base,         ONLY : dfftp
   !<<<
-  USE mdi,              ONLY : MDI_Send, MDI_Recv, MDI_Recv_Command, &
-                               MDI_Accept_Communicator, &
-                               MDI_CHAR, MDI_DOUBLE, MDI_INT, &
-                               MDI_Set_execute_command_func
   USE mdi_engine,       ONLY : is_mdi, recv_npotential, recv_potential, mdi_forces
   !USE command_line_options, ONLY : command_line
   !>>>
@@ -251,16 +232,14 @@ SUBROUTINE mdi_listen ( srvaddress, exit_status, mdi_options )
   ! Local variables
   INTEGER, PARAMETER :: MSGLEN=12
   REAL*8, PARAMETER :: gvec_omega_tol=1.0D-1
-  LOGICAL :: isinit=.false., hasdata=.false., exst, firststep
+  LOGICAL :: isinit=.false., hasdata=.false., exst
   CHARACTER*12 :: header
   CHARACTER*1024 :: parbuffer
-  INTEGER :: socket, nat, rid, ccmd, i, info, rid_old=-1
+  INTEGER :: nat, rid, ccmd, i, info, rid_old=-1
   REAL*8 :: sigma(3,3), omega_reset, at_reset(3,3), dist_reset, ang_reset
-  REAL *8 :: cellh(3,3), cellih(3,3), vir(3,3), pot, mtxbuffer(9)
-  REAL*8, ALLOCATABLE :: combuf(:)
+  REAL *8 :: cellih(3,3), vir(3,3), pot
   REAL*8 :: dist_ang(6), dist_ang_reset(6)
   INTEGER :: ierr
-  LOGICAL :: scf_current=.false.
 
   ! MDI Plugin callback function
   PROCEDURE(mdi_execute_command), POINTER :: mdi_execute_command_func => null()
@@ -329,23 +308,15 @@ SUBROUTINE mdi_listen ( srvaddress, exit_status, mdi_options )
   END IF
   !
   IF (ionode) THEN
-     IF ( is_mdi ) THEN
-        CALL MDI_Accept_Communicator( socket, ierr )
-        CALL MDI_Set_execute_command_func(mdi_execute_command_func, class_obj, ierr)
-     ELSE
-        CALL create_socket(srvaddress)
-     END IF
+     CALL MDI_Accept_Communicator( socket, ierr )
+     CALL MDI_Set_execute_command_func(mdi_execute_command_func, class_obj, ierr)
   END IF
   WRITE(6,*)'Finished calling create socket'
   !>>>
   !
   driver_loop: DO
      !
-     IF ( is_mdi ) THEN
-        IF ( ionode ) CALL MDI_Recv_Command( header, socket, ierr )
-     ELSE
-        IF ( ionode ) CALL readbuffer(socket, header, MSGLEN)
-     END IF
+     IF ( ionode ) CALL MDI_Recv_Command( header, socket, ierr )
      WRITE(6,*)'==============================='
      WRITE(6,*)'New command: ',trim(header)
      WRITE(6,*)'==============================='
@@ -368,224 +339,14 @@ SUBROUTINE mdi_listen ( srvaddress, exit_status, mdi_options )
           & /,5X,'Max number of k-points (npk) = ',I6,&
           & /,5X,'Max angular momentum in pseudopotentials (lmaxx) = ',i2)
   !
-CONTAINS
+END SUBROUTINE mdi_listen
   !
   !
-  SUBROUTINE create_socket (srvaddress)
-    USE f90sockets,       ONLY : open_socket 
-    !<<<
-    !USE mdi,              ONLY : MDI_Request_Connection
-    !>>>
-    IMPLICIT NONE
-    CHARACTER(*), INTENT(IN)  :: srvaddress
-    CHARACTER(256) :: address
-    INTEGER :: port, inet, field_sep_pos, ierr
-    !
-    ! ... Parses host name, port and socket type
-    field_sep_pos = INDEX(srvaddress,':',back=.true.)
-    address = srvaddress(1:field_sep_pos-1)
-    !
-    ! ... Check if UNIX type socket
-    IF ( trim(srvaddress(field_sep_pos+1 :)) == 'UNIX' ) then
-       !<<<
-       WRITE(6,*)'Opening a unix socket'
-       !>>>
-       port = 1234 ! place-holder
-       inet = 0
-       write(*,*) " @ DRIVER MODE: Connecting to ", trim(address), " using UNIX socket"
-    ELSE
-       !<<<
-       WRITE(6,*)'Opening a TCP socket'
-       !>>>
-       read ( srvaddress ( field_sep_pos+1 : ), * ) port
-       inet = 1
-       write(*,*) " @ DRIVER MODE: Connecting to ", trim ( address ), &
-                  ":", srvaddress ( field_sep_pos+1 : )
-       !<<<
-       write(6,*) " @ DRIVER MODE: Connecting to ", trim ( address ), &
-                  ":", srvaddress ( field_sep_pos+1 : )
-       !>>>
-    END IF
-    !
-    ! ... Create the socket
-    !<<<
-    WRITE(6,*)'Calling open_socket'
-    !>>>
-    !<<<
-    !IF (is_mdi) THEN
-       !CALL MDI_Open ( socket, inet, port, trim(address)//achar(0) )
-       !CALL MDI_Request_Connection( "TCP", "localhost:8021", port, socket )
-    !   CALL MDI_Accept_Communicator( socket )
-    !ELSE
-       CALL open_socket ( socket, inet, port, trim(address)//achar(0) )
-    !END IF
-    !>>>
-    !<<<
-    WRITE(6,*)'Finished calling open_socket'
-    !>>>
-    !
-  END SUBROUTINE create_socket
+SUBROUTINE set_replica_id()
+  USE mp_global,        ONLY : intra_image_comm
   !
+  INTEGER :: ierr
   !
-  SUBROUTINE driver_init()
-    !
-    ! ... Check if the replica id (rid) is the same as in the last run
-    !
-    IF ( ionode ) CALL readbuffer( socket, rid ) 
-    CALL mp_bcast( rid, ionode_id, intra_image_comm )
-    !
-    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Receiving replica", rid, rid_old
-    IF ( rid .NE. rid_old ) THEN
-       !
-       ! ... If a different replica reset the history
-       !
-       CALL reset_history_for_extrapolation()
-    END IF
-    !
-    rid_old = rid
-    !
-    IF ( ionode ) THEN
-       !
-       ! ... Length of parameter string -- ignored at present!
-       !
-       CALL readbuffer( socket, nat ) 
-       CALL readbuffer( socket, parbuffer, nat )
-    END IF
-    !
-  END SUBROUTINE driver_init
-  !
-  !
-  SUBROUTINE driver_posdata()
-    !
-    ! ... Receives the positions & the cell data
-    !
-    !
-    at_old = at
-    omega_old = omega
-    !
-    ! ... Read the atomic position from ipi and share to all processes
-    !
-    CALL read_and_share()
-    !
-    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Received positions "
-    !
-    ! ... Recompute cell data
-    !
-    CALL recips( at(1,1), at(1,2), at(1,3), bg(1,1), bg(1,2), bg(1,3) )
-    CALL volume( alat, at(1,1), at(1,2), at(1,3), omega )
-    !
-    ! ... If the cell is changes too much, reinitialize G-Vectors
-    ! ... also extrapolation history must be reset
-    ! ... If firststep, it will also be executed (omega_reset equals 0),
-    ! ... to make sure we initialize G-vectors using positions from I-PI
-        IF ( ((ABS( omega_reset - omega ) / omega) .GT. gvec_omega_tol) .AND. (gvec_omega_tol .GE. 0.d0) ) THEN
-           IF (ionode) THEN
-               IF (firststep) THEN
-                   WRITE(*,*) " @ DRIVER MODE: initialize G-vectors "
-               ELSE
-                   WRITE(*,*) " @ DRIVER MODE: reinitialize G-vectors "
-               END IF
-           END IF
-           CALL initialize_g_vectors()
-           CALL reset_history_for_extrapolation()
-           !
-        ELSE
-           !
-           ! ... Update only atomic position and potential from the history
-           ! ... if the cell did not change too much
-           !
-           IF (.NOT. firststep) THEN
-               CALL update_pot()
-               CALL hinit1()
-           END IF
-        END IF
-    firststep = .false.
-    !
-    ! ... Compute everything
-    !
-    CALL electrons()
-    IF ( .NOT. conv_elec ) THEN
-       CALL punch( 'all' )
-       CALL stop_run( conv_elec )
-    ENDIF
-    CALL forces()
-    CALL stress(sigma)
-    !
-    ! ... Converts energy & forces to the format expected by i-pi
-    ! ... (so go from Ry to Ha)
-    !
-    combuf=RESHAPE(force, (/ 3 * nat /) ) * 0.5   ! force in a.u.
-    pot=etot * 0.5                                ! potential in a.u.
-    vir=TRANSPOSE( sigma ) * omega * 0.5          ! virial in a.u & no omega scal.
-    !
-    ! ... Updates history
-    !
-    istep = istep+1
-    CALL update_file()
-    !
-  END SUBROUTINE driver_posdata
-  !
-  !
-  SUBROUTINE driver_getforce()
-    !
-    ! ... communicates energy info back to i-pi
-    !
-    IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Returning v,forces,stress "
-    IF ( ionode ) CALL writebuffer( socket, "FORCEREADY  ", MSGLEN)         
-    IF ( ionode ) CALL writebuffer( socket, pot)
-    IF ( ionode ) CALL writebuffer( socket, nat)
-    IF ( ionode ) CALL writebuffer( socket, combuf, 3 * nat)
-    IF ( ionode ) CALL writebuffer( socket, RESHAPE( vir, (/9/) ), 9)
-    !
-    ! ... Note: i-pi can also receive an arbitrary string, that will be printed
-    ! ... out to the "extra" trajectory file. This is useful if you want to
-    ! ... return additional information, e.g. atomic charges, wannier centres,
-    ! ... etc. one must return the number of characters, then the string. Here
-    ! .... we just send back zero characters.
-    !
-    nat = 0
-    IF ( ionode ) CALL writebuffer( socket, nat )
-    CALL punch( 'config' )
-    !
-  END SUBROUTINE driver_getforce
-  !
-  !
-  SUBROUTINE read_and_share()
-    ! ... First reads cell and the number of atoms
-    !
-    IF ( ionode ) CALL readbuffer(socket, mtxbuffer, 9)
-    cellh = RESHAPE(mtxbuffer, (/3,3/))         
-    IF ( ionode ) CALL readbuffer(socket, mtxbuffer, 9)
-    cellih = RESHAPE(mtxbuffer, (/3,3/))
-    IF ( ionode ) CALL readbuffer(socket, nat)
-    !
-    ! ... Share the received data 
-    !
-    CALL mp_bcast( cellh,  ionode_id, intra_image_comm )  
-    CALL mp_bcast( cellih, ionode_id, intra_image_comm )
-    CALL mp_bcast(    nat, ionode_id, intra_image_comm )
-    !
-    ! ... Allocate the dummy array for the atoms coordinate and share it
-    !
-    IF ( .NOT. ALLOCATED( combuf ) ) THEN
-       ALLOCATE( combuf( 3 * nat ) )
-    END IF
-    IF ( ionode ) CALL readbuffer(socket, combuf, nat*3)
-    CALL mp_bcast( combuf, ionode_id, intra_image_comm)
-    !
-    ! ... Convert the incoming configuration to the internal pwscf format
-    !
-    cellh  = TRANSPOSE(  cellh )                 ! row-major to column-major 
-    cellih = TRANSPOSE( cellih )         
-    tau = RESHAPE( combuf, (/ 3 , nat /) )/alat  ! internally positions are in alat 
-    at = cellh / alat                            ! and so the cell
-    !
-  END SUBROUTINE read_and_share
-  !<<<
-  !
-  !
-  SUBROUTINE set_replica_id()
-    !
     ! ... Check if the replica id (rid) is the same as in the last run
     !
     IF ( ionode ) CALL MDI_Recv( rid, 1, MDI_INT, socket, ierr )
@@ -605,6 +366,11 @@ CONTAINS
   !
   !
   SUBROUTINE set_nat()
+    USE mp_global,        ONLY : intra_image_comm
+    USE ions_base,        ONLY : nat_input => nat
+    !
+    INTEGER :: ierr
+    !
     ! ... Reads the number of atoms
     !
     IF ( ionode ) CALL MDI_Recv( nat, 1, MDI_INT, socket, ierr )
@@ -632,7 +398,10 @@ CONTAINS
   !
   !
   SUBROUTINE read_nat_mm()
+    !
     INTEGER :: natoms_in
+    INTEGER :: ierr
+    !
     ! ... Reads the number of mm atoms
     !
     IF ( ionode ) CALL MDI_Recv( natoms_in, 1, MDI_INT, socket, ierr )
@@ -645,7 +414,10 @@ CONTAINS
   !
   !
   SUBROUTINE read_ntypes()
+    !
     INTEGER :: ntypes_in
+    INTEGER :: ierr
+    !
     ! ... Reads the number of atom types
     !
     IF ( ionode ) CALL MDI_Recv( ntypes_in, 1, MDI_INT, socket, ierr )
@@ -658,6 +430,11 @@ CONTAINS
   !
   !
   SUBROUTINE read_qmmm_mode()
+    USE qmmm,             ONLY : qmmm_mode
+    USE mp_global,        ONLY : intra_image_comm
+    !
+    INTEGER :: ierr
+    !
     ! ... Reads the number of atoms
     !
     IF ( ionode ) CALL MDI_Recv( qmmm_mode, 1, MDI_INT, socket, ierr )
@@ -671,6 +448,10 @@ CONTAINS
   !
   !
   SUBROUTINE read_cell()
+    USE mp_global,        ONLY : intra_image_comm
+    USE cellmd,           ONLY : omega_old, at_old
+    !
+    INTEGER :: ierr
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading cell "
     !
@@ -707,6 +488,7 @@ CONTAINS
     USE kinds,            ONLY : DP
     !
     REAL(DP) :: cell_mdi(9)
+    INTEGER :: ierr
     !
     IF ( ionode ) THEN
        !
@@ -742,6 +524,8 @@ CONTAINS
   !
   SUBROUTINE read_cell_mm()
     !
+    INTEGER :: ierr
+    !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM cell "
     !
     ! ... Read the dimensions of the MM cell
@@ -754,6 +538,10 @@ CONTAINS
   !
   !
   SUBROUTINE read_coordinates()
+    USE mp_global,        ONLY : intra_image_comm
+    USE ions_base,        ONLY : tau
+    !
+    INTEGER :: i, ierr
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading coordinates "
     !
@@ -777,6 +565,9 @@ CONTAINS
   !
   !
   SUBROUTINE send_coordinates()
+    USE ions_base,        ONLY : tau
+    !
+    INTEGER :: ierr
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Sending coordinates "
     !
@@ -799,6 +590,7 @@ CONTAINS
     USE ions_base,        ONLY : zv, ityp
     !
     REAL(DP) :: charges(nat)
+    INTEGER  :: i, ierr
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Sending charges "
     !
@@ -820,6 +612,7 @@ CONTAINS
   !
   !
   SUBROUTINE run_scf()
+    USE control_flags,    ONLY : conv_elec
     !
     ! ... Initialize the G-Vectors when needed
     !
@@ -854,6 +647,9 @@ CONTAINS
   !
   !
   SUBROUTINE write_energy()
+    USE ener,             ONLY : etot
+    !
+    INTEGER :: ierr
     !
     ! ... Run an SCF calculation
     !
@@ -870,6 +666,9 @@ CONTAINS
   !
   !
   SUBROUTINE write_forces()
+    USE mdi_engine,       ONLY : mdi_forces
+    !
+    INTEGER :: ierr
     !
     ! ... Run an SCF calculation
     !
@@ -894,6 +693,7 @@ CONTAINS
   !
   !
   SUBROUTINE send_natoms()
+    INTEGER :: ierr
     !
     ! ... Send the number of atoms in the system
     !
@@ -904,6 +704,8 @@ CONTAINS
   !
   !
   SUBROUTINE initialize_g_vectors()
+    USE cellmd,           ONLY : omega_old, at_old
+    USE mp_global,        ONLY : intra_image_comm
     !
     CALL clean_pw( .FALSE. )
     CALL init_run()
@@ -915,7 +717,6 @@ CONTAINS
     CALL mp_bcast( bg,        ionode_id, intra_image_comm )
     !
     omega_reset = omega
-    dist_ang_reset = dist_ang
     !<<<
     !
     !lgreset = .false.
@@ -924,6 +725,8 @@ CONTAINS
   END SUBROUTINE initialize_g_vectors
   !
   SUBROUTINE reset_history_for_extrapolation()
+    USE io_files,         ONLY : iunupdate, nd_nmbr, prefix, tmp_dir, postfix, &
+                                 wfc_dir, delete_if_present, seqopn
     !
     ! ... Resets history of wavefunction and rho as if the
     ! ... previous step was the first one in the calculation.
@@ -1003,6 +806,5 @@ CONTAINS
   END FUNCTION get_mdi_options_subroutine
 !>>>
 !
-END SUBROUTINE mdi_listen
 
 END MODULE run_mdi
