@@ -31,6 +31,8 @@ MODULE run_mdi
   REAL *8 :: cellh(3,3), mtxbuffer(9)
   LOGICAL :: firststep
 
+  PUBLIC :: mdi_listen
+
 CONTAINS
 
 
@@ -188,165 +190,165 @@ CONTAINS
   END SUBROUTINE MDI_EXECUTE_COMMAND
 
   
-SUBROUTINE mdi_listen ( srvaddress, exit_status, mdi_options ) 
-  !!
-  !! Driver for IPI
-  !!
-  USE io_global,        ONLY : stdout, ionode, ionode_id
-  USE parameters,       ONLY : ntypx, npk, lmaxx
-  USE check_stop,       ONLY : check_stop_init
-  USE mp_global,        ONLY : mp_bcast, mp_global_end, intra_image_comm
-  USE control_flags,    ONLY : gamma_only, conv_elec, istep, ethr, lscf, lmd
-  USE cellmd,           ONLY : lmovecell
-  USE force_mod,        ONLY : lforce, lstres
-  USE ions_base,        ONLY : tau, nat_input => nat
-  USE cell_base,        ONLY : alat, at, omega, bg
-  USE cellmd,           ONLY : omega_old, at_old, calc
-  USE force_mod,        ONLY : force
-  USE f90sockets,       ONLY : readbuffer, writebuffer
-  USE extrapolation,    ONLY : update_file, update_pot
-  USE io_files,         ONLY : iunupdate, nd_nmbr, prefix, tmp_dir, postfix, &
-                               wfc_dir, delete_if_present, seqopn
-  USE qmmm,             ONLY : qmmm_mode, qmmm_initialization, set_mm_natoms, &
-                               set_qm_natoms, set_ntypes, set_cell_mm, &
-                               read_mm_charge, read_mm_mask, read_mm_coord, &
-                               read_types, read_mass, write_ec_force, &
-                               write_mm_force, qmmm_center_molecule, &
-                               qmmm_minimum_image, read_aradii, send_ndensity, &
-                               send_cdensity, send_density
-  USE scf,              ONLY : rho
-  USE lsda_mod,         ONLY : nspin
-  USE fft_base,         ONLY : dfftp
-  !<<<
-  USE mdi_engine,       ONLY : is_mdi, recv_npotential, recv_potential, mdi_forces
-  !USE command_line_options, ONLY : command_line
-  !>>>
-  !
-  IMPLICIT NONE
-  INTEGER, INTENT(OUT) :: exit_status
-  !! Gives the exit status at the end
-  CHARACTER(*), INTENT(IN) :: srvaddress
-  CHARACTER(len=1024), OPTIONAL :: mdi_options
-  !! Gives the socket address 
-  !
-  ! Local variables
-  INTEGER, PARAMETER :: MSGLEN=12
-  REAL*8, PARAMETER :: gvec_omega_tol=1.0D-1
-  LOGICAL :: isinit=.false., hasdata=.false., exst
-  CHARACTER*12 :: header
-  CHARACTER*1024 :: parbuffer
-  INTEGER :: nat, rid, ccmd, i, info, rid_old=-1
-  REAL*8 :: sigma(3,3), omega_reset, at_reset(3,3), dist_reset, ang_reset
-  REAL *8 :: cellih(3,3), vir(3,3), pot
-  REAL*8 :: dist_ang(6), dist_ang_reset(6)
-  INTEGER :: ierr
-
-  ! MDI Plugin callback function
-  PROCEDURE(mdi_execute_command), POINTER :: mdi_execute_command_func => null()
-  TYPE(C_PTR)                         :: class_obj
-  mdi_execute_command_func => mdi_execute_command
-
-  !>>>
-  !----------------------------------------------------------------------------
-  !
-  lscf      = .true.
-  lforce    = .true.
-  lstres    = .true.
-  lmd       = .true.
-  lmovecell = .true.
-  firststep = .true.
-  omega_reset = 0.d0
-  !
-  exit_status = 0
-  IF ( ionode ) WRITE( unit = stdout, FMT = 9010 ) ntypx, npk, lmaxx
-  !
-  !<<<
-  WRITE(6,*)'At start of run_driver'
-  !>>>
-  IF (ionode) CALL plugin_arguments()
-  !<<<
-  WRITE(6,*)'Calling plugin_arguments_bcast'
-  !>>>
-  CALL plugin_arguments_bcast( ionode_id, intra_image_comm )
-  !
-  ! ... needs to come before iosys() so some input flags can be
-  !     overridden without needing to write PWscf specific code.
-  !
-  ! ... convert to internal variables
-  !
-  !<<<
-  WRITE(6,*)'Calling iosys'
-  !>>>
-  CALL iosys()
-  !
-  IF ( gamma_only ) WRITE( UNIT = stdout, &
-       & FMT = '(/,5X,"gamma-point specific algorithms are used")' )
-  !
-  ! call to void routine for user defined / plugin patches initializations
-  !
-  !<<<
-  WRITE(6,*)'Calling plugin_initialization'
-  !>>>
-  CALL plugin_initialization()
-  !
-  CALL check_stop_init()
-  CALL setup()
-  ! ... Initializations
-  CALL init_run()
-  !<<<
-  !
-  IF ( .not. PRESENT( mdi_options ) ) THEN
-     mdi_options = get_mdi_options_subroutine( )
-  END IF
-  IF ( .not. trim(mdi_options) == ' ' ) is_mdi = .true.
-  WRITE(6,*)'MDI options: ',mdi_options
-  WRITE(6,*)'is_mdi: ',is_mdi
-  WRITE(6,*)'Calling create socket'
-  IF (is_mdi) THEN
-     nat = nat_input
-     CALL allocate_nat_arrays()
-  END IF
-  !
-  IF (ionode) THEN
-     CALL MDI_Accept_Communicator( socket, ierr )
-     CALL MDI_Set_execute_command_func(mdi_execute_command_func, class_obj, ierr)
-  END IF
-  WRITE(6,*)'Finished calling create socket'
-  !>>>
-  !
-  driver_loop: DO
-     !
-     IF ( ionode ) CALL MDI_Recv_Command( header, socket, ierr )
-     WRITE(6,*)'==============================='
-     WRITE(6,*)'New command: ',trim(header)
-     WRITE(6,*)'==============================='
-     FLUSH(6)
-     CALL mp_bcast( header, ionode_id, intra_image_comm )
-     !
-     IF ( ionode ) write(*,*) " @ DRIVER MODE: Message from server: ", trim( header )
-     !
-
-
-     call mdi_execute_command(header, socket, ierr)
-     exit_status = ierr
-
+  SUBROUTINE mdi_listen ( srvaddress, exit_status, mdi_options ) 
+    !!
+    !! Driver for IPI
+    !!
+    USE io_global,        ONLY : stdout, ionode, ionode_id
+    USE parameters,       ONLY : ntypx, npk, lmaxx
+    USE check_stop,       ONLY : check_stop_init
+    USE mp_global,        ONLY : mp_bcast, mp_global_end, intra_image_comm
+    USE control_flags,    ONLY : gamma_only, conv_elec, istep, ethr, lscf, lmd
+    USE cellmd,           ONLY : lmovecell
+    USE force_mod,        ONLY : lforce, lstres
+    USE ions_base,        ONLY : tau, nat_input => nat
+    USE cell_base,        ONLY : alat, at, omega, bg
+    USE cellmd,           ONLY : omega_old, at_old, calc
+    USE force_mod,        ONLY : force
+    USE f90sockets,       ONLY : readbuffer, writebuffer
+    USE extrapolation,    ONLY : update_file, update_pot
+    USE io_files,         ONLY : iunupdate, nd_nmbr, prefix, tmp_dir, postfix, &
+         wfc_dir, delete_if_present, seqopn
+    USE qmmm,             ONLY : qmmm_mode, qmmm_initialization, set_mm_natoms, &
+         set_qm_natoms, set_ntypes, set_cell_mm, &
+         read_mm_charge, read_mm_mask, read_mm_coord, &
+         read_types, read_mass, write_ec_force, &
+         write_mm_force, qmmm_center_molecule, &
+         qmmm_minimum_image, read_aradii, send_ndensity, &
+         send_cdensity, send_density
+    USE scf,              ONLY : rho
+    USE lsda_mod,         ONLY : nspin
+    USE fft_base,         ONLY : dfftp
+    !<<<
+    USE mdi_engine,       ONLY : is_mdi, recv_npotential, recv_potential, mdi_forces
+    !USE command_line_options, ONLY : command_line
+    !>>>
+    !
+    IMPLICIT NONE
+    INTEGER, INTENT(OUT) :: exit_status
+    !! Gives the exit status at the end
+    CHARACTER(*), INTENT(IN) :: srvaddress
+    CHARACTER(len=1024), OPTIONAL :: mdi_options
+    !! Gives the socket address 
+    !
+    ! Local variables
+    INTEGER, PARAMETER :: MSGLEN=12
+    REAL*8, PARAMETER :: gvec_omega_tol=1.0D-1
+    LOGICAL :: isinit=.false., hasdata=.false., exst
+    CHARACTER*12 :: header
+    CHARACTER*1024 :: parbuffer
+    INTEGER :: nat, rid, ccmd, i, info, rid_old=-1
+    REAL*8 :: sigma(3,3), omega_reset, at_reset(3,3), dist_reset, ang_reset
+    REAL *8 :: cellih(3,3), vir(3,3), pot
+    REAL*8 :: dist_ang(6), dist_ang_reset(6)
+    INTEGER :: ierr
+    
+    ! MDI Plugin callback function
+    PROCEDURE(mdi_execute_command), POINTER :: mdi_execute_command_func => null()
+    TYPE(C_PTR)                         :: class_obj
+    mdi_execute_command_func => mdi_execute_command
+    
+    !>>>
+    !----------------------------------------------------------------------------
+    !
+    lscf      = .true.
+    lforce    = .true.
+    lstres    = .true.
+    lmd       = .true.
+    lmovecell = .true.
+    firststep = .true.
+    omega_reset = 0.d0
+    !
+    exit_status = 0
+    IF ( ionode ) WRITE( unit = stdout, FMT = 9010 ) ntypx, npk, lmaxx
+    !
+    !<<<
+    WRITE(6,*)'At start of run_driver'
+    !>>>
+    IF (ionode) CALL plugin_arguments()
+    !<<<
+    WRITE(6,*)'Calling plugin_arguments_bcast'
+    !>>>
+    CALL plugin_arguments_bcast( ionode_id, intra_image_comm )
+    !
+    ! ... needs to come before iosys() so some input flags can be
+    !     overridden without needing to write PWscf specific code.
+    !
+    ! ... convert to internal variables
+    !
+    !<<<
+    WRITE(6,*)'Calling iosys'
+    !>>>
+    CALL iosys()
+    !
+    IF ( gamma_only ) WRITE( UNIT = stdout, &
+         & FMT = '(/,5X,"gamma-point specific algorithms are used")' )
+    !
+    ! call to void routine for user defined / plugin patches initializations
+    !
+    !<<<
+    WRITE(6,*)'Calling plugin_initialization'
+    !>>>
+    CALL plugin_initialization()
+    !
+    CALL check_stop_init()
+    CALL setup()
+    ! ... Initializations
+    CALL init_run()
+    !<<<
+    !
+    IF ( .not. PRESENT( mdi_options ) ) THEN
+       mdi_options = get_mdi_options_subroutine( )
+    END IF
+    IF ( .not. trim(mdi_options) == ' ' ) is_mdi = .true.
+    WRITE(6,*)'MDI options: ',mdi_options
+    WRITE(6,*)'is_mdi: ',is_mdi
+    WRITE(6,*)'Calling create socket'
+    IF (is_mdi) THEN
+       nat = nat_input
+       CALL allocate_nat_arrays()
+    END IF
+    !
+    IF (ionode) THEN
+       CALL MDI_Accept_Communicator( socket, ierr )
+       CALL MDI_Set_execute_command_func(mdi_execute_command_func, class_obj, ierr)
+    END IF
+    WRITE(6,*)'Finished calling create socket'
+    !>>>
+    !
+    driver_loop: DO
+       !
+       IF ( ionode ) CALL MDI_Recv_Command( header, socket, ierr )
+       WRITE(6,*)'==============================='
+       WRITE(6,*)'New command: ',trim(header)
+       WRITE(6,*)'==============================='
+       FLUSH(6)
+       CALL mp_bcast( header, ionode_id, intra_image_comm )
+       !
+       IF ( ionode ) write(*,*) " @ DRIVER MODE: Message from server: ", trim( header )
+       !
+       
+       
+       call mdi_execute_command(header, socket, ierr)
+       exit_status = ierr
+       
      
-     !
-  END DO driver_loop
-  !
+       !
+    END DO driver_loop
+    !
 9010 FORMAT( /,5X,'Current dimensions of program PWSCF are:', &
           & /,5X,'Max number of different atomic species (ntypx) = ',I2,&
           & /,5X,'Max number of k-points (npk) = ',I6,&
           & /,5X,'Max angular momentum in pseudopotentials (lmaxx) = ',i2)
+    !
+  END SUBROUTINE mdi_listen
   !
-END SUBROUTINE mdi_listen
   !
-  !
-SUBROUTINE set_replica_id()
-  USE mp_global,        ONLY : intra_image_comm
-  !
-  INTEGER :: ierr
-  !
+  SUBROUTINE set_replica_id()
+    USE mp_global,        ONLY : intra_image_comm
+    !
+    INTEGER :: ierr
+    !
     ! ... Check if the replica id (rid) is the same as in the last run
     !
     IF ( ionode ) CALL MDI_Recv( rid, 1, MDI_INT, socket, ierr )
