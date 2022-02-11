@@ -39,7 +39,8 @@ PROGRAM pwscf
   USE read_input,        ONLY : read_input_file
   USE command_line_options, ONLY: input_file_, command_line
   !<<<
-  USE mdi,               ONLY : MDI_Init
+  !USE mdi,               ONLY : MDI_Init
+  USE mdi_engine,        ONLY : get_mdi_options
   USE parallel_include
   !>>>
   !
@@ -58,7 +59,7 @@ PROGRAM pwscf
   !! Get the MDI options
   CHARACTER(len=1024) :: mdi_options
   !! Get the MDI options
-  CHARACTER(len=1024) :: get_mdi_options
+  !CHARACTER(len=1024) :: get_mdi_options
   !
   !<<<
   mdi_options = get_mdi_options ( )

@@ -44,6 +44,7 @@ MODULE mdi_engine
   PUBLIC :: is_mdi, mdi_forces
   PUBLIC :: recv_npotential, recv_potential
   PUBLIC :: mdi_add_potential, set_mdi_forces
+  PUBLIC :: get_mdi_options
   !
 CONTAINS
   !
@@ -273,4 +274,57 @@ CONTAINS
     !
   END SUBROUTINE set_mdi_forces
   !
+  FUNCTION get_mdi_options ( ) RESULT ( options )
+    ! 
+    ! checks for the presence of a command-line option of the form
+    ! -mdi "options" or --mdi "options";
+    ! returns "options", used to run pw.x in driver mode.
+    ! On input, "commmand_line" must contain the unprocessed part of the command
+    ! line, on all processors, as returned after a call to "get_cammand_line"
+    !
+    USE command_line_options, ONLY : my_iargc, my_getarg
+    IMPLICIT NONE
+    !CHARACTER(LEN=*), INTENT(IN) :: command_line
+    CHARACTER(LEN=1024) :: options
+    !
+    INTEGER  :: nargs, narg
+    CHARACTER (len=1024) :: arg
+    !
+    nargs = command_argument_count()
+    options = ' '
+    !IF ( command_line == ' ' ) RETURN
+    !
+    !nargs = my_iargc ( command_line )
+    !
+    narg = 0
+10  CONTINUE
+    CALL get_command_argument(narg, arg)
+    !CALL my_getarg ( command_line, narg, arg )
+    IF ( TRIM (arg) == '-mdi' .OR. TRIM (arg) == '--mdi' ) THEN
+       IF ( options == ' ' ) THEN
+          narg = narg + 1
+          IF ( narg > nargs ) THEN
+             CALL infomsg('get_server_address','missing server IP in command line')
+             RETURN
+          ELSE
+             CALL get_command_argument(narg, options)
+             !CALL my_getarg ( command_line, narg, options )
+          END IF
+       ELSE
+          CALL infomsg('get_server_address','duplicated server IP in command line')
+       END IF
+    END IF
+    narg = narg + 1
+    IF ( narg > nargs ) RETURN
+    GO TO 10
+    !
+  END FUNCTION get_mdi_options
+
+
+
+
+
+
+
+!
 END MODULE mdi_engine

@@ -13,6 +13,7 @@ MODULE MDI_IMPLEMENTATION
        MDI_ENGINE, MDI_Get_role, MDI_Register_command, MDI_Register_node, &
        MDI_Register_callback, MDI_COMMAND_LENGTH, MDI_MPI_get_world_comm, &
        MDI_Plugin_get_argc, MDI_Plugin_get_arg
+  USE run_mdi,        ONLY : mdi_listen
   USE environment,       ONLY : environment_start
   USE mp_global,         ONLY : mp_startup
   USE read_input,        ONLY : read_input_file
@@ -84,15 +85,17 @@ MODULE MDI_IMPLEMENTATION
     CALL set_command_line( nimage=nim, npool=npl, ntg=nta, &
          nband=nbn, ndiag=ndg )
     CALL mp_startup ( my_world_comm=world_comm )
+    !CALL mp_startup ( mdi_initialization = mdi_options )
     CALL environment_start ( 'PWSCF' )
     !
     infile = '/repo/tests/water/qe.in'
-    CALL read_input_file ('PW', infile )
+    CALL read_input_file ('PW+iPi', infile )
     !
     ! Start a PW calculation, which will listen for MDI commands
     !
     retval = 0
-    CALL run_pwscf  ( retval )
+    !CALL run_pwscf  ( retval )
+    CALL mdi_listen( ' ', retval, mdi_options=mdi_options )
     !
     MDI_Plugin_init_plugin = retval
     !

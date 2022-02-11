@@ -61,6 +61,7 @@ dqvan2.o \
 drhoc.o \
 rotate_wfc.o \
 run_driver.o \
+run_mdi.o \
 dvloc_of_g.o \
 dynamics_module.o \
 efermig.o \

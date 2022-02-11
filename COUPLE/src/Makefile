@@ -3,6 +3,7 @@ include ../../make.inc
 
 # location of required modules and include files
 MODFLAGS= $(BASEMOD_FLAGS) \
+          $(MOD_FLAG)../../PW/src \
           $(MOD_FLAG)../../CPV/src
 
 TLDEPS=pw cp
