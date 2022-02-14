@@ -1676,6 +1676,7 @@ run_mdi.o : ../../Modules/io_global.o
 run_mdi.o : ../../Modules/ions_base.o
 run_mdi.o : ../../Modules/mp_global.o
 run_mdi.o : ../../Modules/parameters.o
+run_mdi.o : ../../Modules/qmmm.o
 run_mdi.o : pwcom.o
 run_mdi.o : update_pot.o
 run_pwscf.o : ../../FFTXlib/fft_types.o

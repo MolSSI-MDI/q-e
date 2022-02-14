@@ -13,7 +13,7 @@ MODULE MDI_IMPLEMENTATION
        MDI_ENGINE, MDI_Get_role, MDI_Register_command, MDI_Register_node, &
        MDI_Register_callback, MDI_COMMAND_LENGTH, MDI_MPI_get_world_comm, &
        MDI_Plugin_get_argc, MDI_Plugin_get_arg
-  USE run_mdi,        ONLY : mdi_listen
+  !USE run_mdi,        ONLY : mdi_listen
   USE environment,       ONLY : environment_start
   USE mp_global,         ONLY : mp_startup
   USE read_input,        ONLY : read_input_file
@@ -95,7 +95,7 @@ MODULE MDI_IMPLEMENTATION
     !
     retval = 0
     !CALL run_pwscf  ( retval )
-    CALL mdi_listen( ' ', retval, mdi_options=mdi_options )
+    !CALL mdi_listen( ' ', retval, mdi_options=mdi_options )
     !
     MDI_Plugin_init_plugin = retval
     !

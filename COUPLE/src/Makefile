@@ -3,6 +3,7 @@ include ../../make.inc
 
 # location of required modules and include files
 MODFLAGS= $(BASEMOD_FLAGS) \
+          $(MOD_FLAG)../../Modules \
           $(MOD_FLAG)../../PW/src \
           $(MOD_FLAG)../../CPV/src
 
@@ -35,14 +36,12 @@ libqecouple.a : $(COUPLEOBJS)
 libplugin.so: libplugin.o
 	$(MPIF90) -shared -o libplugin.so libplugin.o \
         -Wl,--whole-archive \
-        ../../Modules/libqemod.a \
         ../../UtilXlib/libutil.a \
         ../../FFTXlib/libqefft.a \
         ../../LAXlib/libqela.a \
         ../../dft-d3/libdftd3qe.a \
         ../../KS_Solvers/libks_solvers.a \
         ../../clib/clib.a \
-        ../../PW/src/libpw.a \
         ../../FoX/lib/libFoX_common.a \
         ../../FoX/lib/libFoX_dom.a \
         ../../FoX/lib/libFoX_fsys.a \
@@ -51,6 +50,8 @@ libplugin.so: libplugin.o
         ../../FoX/lib/libFoX_wcml.a \
         ../../FoX/lib/libFoX_wkml.a \
         ../../FoX/lib/libFoX_wxml.a \
+        ../../Modules/libqemod.a \
+        ../../PW/src/libpw.a \
         -Wl,--no-whole-archive \
 	$(QELIBS) \
         $(F90FLAGS)
