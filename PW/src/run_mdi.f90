@@ -192,7 +192,7 @@ CONTAINS
 
 
   
-  SUBROUTINE mdi_listen ( srvaddress, exit_status, mdi_options ) 
+  SUBROUTINE mdi_listen ( srvaddress, exit_status ) 
     !!
     !! Driver for IPI
     !!
@@ -229,7 +229,6 @@ CONTAINS
     INTEGER, INTENT(OUT) :: exit_status
     !! Gives the exit status at the end
     CHARACTER(*), INTENT(IN) :: srvaddress
-    CHARACTER(len=1024), OPTIONAL :: mdi_options
     !! Gives the socket address 
     !
     ! Local variables
@@ -298,11 +297,7 @@ CONTAINS
     CALL init_run()
     !<<<
     !
-    IF ( .not. PRESENT( mdi_options ) ) THEN
-       mdi_options = get_mdi_options( )
-    END IF
-    IF ( .not. trim(mdi_options) == ' ' ) is_mdi = .true.
-    WRITE(6,*)'MDI options: ',mdi_options
+    is_mdi = .true.
     WRITE(6,*)'is_mdi: ',is_mdi
     WRITE(6,*)'Calling create socket'
     IF (is_mdi) THEN
