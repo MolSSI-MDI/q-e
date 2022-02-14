@@ -14,7 +14,9 @@ MODULE run_mdi
                                MDI_Accept_Communicator, &
                                MDI_CHAR, MDI_DOUBLE, MDI_INT, &
                                MDI_Set_execute_command_func
-  use mdi_engine,       ONLY : socket
+  use mdi_engine,       ONLY : socket, scf_current, get_mdi_options, &
+                               firststep, combuf, &
+                               recv_nat_mm
   !
   USE ISO_C_BINDING
   !
@@ -23,13 +25,8 @@ MODULE run_mdi
   !
   PRIVATE
   !
-  REAL*8, ALLOCATABLE :: combuf(:)
-  REAL*8              :: omega_reset
   INTEGER             :: nat
   INTEGER             :: rid, rid_old=-1
-  LOGICAL :: scf_current=.false.
-  REAL *8 :: cellh(3,3), mtxbuffer(9)
-  LOGICAL :: firststep
 
   PUBLIC :: mdi_listen
 
@@ -77,7 +74,7 @@ CONTAINS
         !
      CASE( ">MM_NATOMS" )
         scf_current = .false.
-        CALL read_nat_mm()
+        CALL recv_nat_mm()
         !
      CASE( ">NTYPES" )
         scf_current = .false.
@@ -231,7 +228,7 @@ CONTAINS
     CHARACTER*12 :: header
     CHARACTER*1024 :: parbuffer
     INTEGER :: nat, rid, ccmd, i, info, rid_old=-1
-    REAL*8 :: sigma(3,3), omega_reset, at_reset(3,3), dist_reset, ang_reset
+    REAL*8 :: sigma(3,3), at_reset(3,3), dist_reset, ang_reset
     REAL *8 :: cellih(3,3), vir(3,3), pot
     REAL*8 :: dist_ang(6), dist_ang_reset(6)
     INTEGER :: ierr
@@ -250,7 +247,7 @@ CONTAINS
     lmd       = .true.
     lmovecell = .true.
     firststep = .true.
-    omega_reset = 0.d0
+    !omega_reset = 0.d0
     !
     exit_status = 0
     IF ( ionode ) WRITE( unit = stdout, FMT = 9010 ) ntypx, npk, lmaxx
@@ -291,7 +288,7 @@ CONTAINS
     !<<<
     !
     IF ( .not. PRESENT( mdi_options ) ) THEN
-       mdi_options = get_mdi_options_subroutine( )
+       mdi_options = get_mdi_options( )
     END IF
     IF ( .not. trim(mdi_options) == ' ' ) is_mdi = .true.
     WRITE(6,*)'MDI options: ',mdi_options
@@ -392,22 +389,6 @@ CONTAINS
   END SUBROUTINE allocate_nat_arrays
   !
   !
-  SUBROUTINE read_nat_mm()
-    !
-    INTEGER :: natoms_in
-    INTEGER :: ierr
-    !
-    ! ... Reads the number of mm atoms
-    !
-    IF ( ionode ) CALL MDI_Recv( natoms_in, 1, MDI_INT, socket, ierr )
-    !
-    IF ( ionode ) write(*,*) " @ DRIVER MODE: Read mm natoms: ",natoms_in
-    !
-    CALL set_mm_natoms(natoms_in)
-    !
-  END SUBROUTINE read_nat_mm
-  !
-  !
   SUBROUTINE read_ntypes()
     !
     INTEGER :: ntypes_in
@@ -429,6 +410,8 @@ CONTAINS
     USE cellmd,           ONLY : omega_old, at_old
     !
     INTEGER :: ierr
+    REAL *8 :: cellh(3,3)
+    REAL *8 :: mtxbuffer(9)
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading cell "
     !
@@ -466,6 +449,7 @@ CONTAINS
     !
     REAL(DP) :: cell_mdi(9)
     INTEGER :: ierr
+    REAL *8 :: cellh(3,3)
     !
     IF ( ionode ) THEN
        !
@@ -502,6 +486,7 @@ CONTAINS
   SUBROUTINE read_cell_mm()
     !
     INTEGER :: ierr
+    REAL *8 :: mtxbuffer(9)
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading MM cell "
     !
@@ -693,7 +678,7 @@ CONTAINS
     CALL mp_bcast( omega_old, ionode_id, intra_image_comm )
     CALL mp_bcast( bg,        ionode_id, intra_image_comm )
     !
-    omega_reset = omega
+    !omega_reset = omega
     !<<<
     !
     !lgreset = .false.
@@ -734,54 +719,6 @@ CONTAINS
     CALL update_file()
     !
   END SUBROUTINE
-!<<<
   !
-  FUNCTION get_mdi_options_subroutine ( ) RESULT ( options )
-    ! 
-    ! checks for the presence of a command-line option of the form
-    ! -mdi "options" or --mdi "options";
-    ! returns "options", used to run pw.x in driver mode.
-    ! On input, "commmand_line" must contain the unprocessed part of the command
-    ! line, on all processors, as returned after a call to "get_cammand_line"
-    !
-    USE command_line_options, ONLY : my_iargc, my_getarg
-    IMPLICIT NONE
-    !CHARACTER(LEN=*), INTENT(IN) :: command_line
-    CHARACTER(LEN=1024) :: options
-    !
-    INTEGER  :: nargs, narg
-    CHARACTER (len=1024) :: arg
-    !
-    nargs = command_argument_count()
-    options = ' '
-    !IF ( command_line == ' ' ) RETURN
-    !
-    !nargs = my_iargc ( command_line )
-    !
-    narg = 0
-10  CONTINUE
-    CALL get_command_argument(narg, arg)
-    !CALL my_getarg ( command_line, narg, arg )
-    IF ( TRIM (arg) == '-mdi' .OR. TRIM (arg) == '--mdi' ) THEN
-       IF ( options == ' ' ) THEN
-          narg = narg + 1
-          IF ( narg > nargs ) THEN
-             CALL infomsg('get_server_address','missing server IP in command line')
-             RETURN
-          ELSE
-             CALL get_command_argument(narg, options)
-             !CALL my_getarg ( command_line, narg, options )
-          END IF
-       ELSE
-          CALL infomsg('get_server_address','duplicated server IP in command line')
-       END IF
-    END IF
-    narg = narg + 1
-    IF ( narg > nargs ) RETURN
-    GO TO 10
-    !
-  END FUNCTION get_mdi_options_subroutine
-!>>>
-!
-
+  !
 END MODULE run_mdi

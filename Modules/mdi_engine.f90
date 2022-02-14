@@ -51,11 +51,19 @@ MODULE mdi_engine
   ! The mdi communicator
   INTEGER             :: socket
   !
-  PUBLIC :: is_mdi, mdi_forces, socket
+  ! Flag whether the most recent SCF results are still valid
+  LOGICAL :: scf_current=.false.
+  !
+  REAL*8, ALLOCATABLE :: combuf(:)
+  LOGICAL :: firststep
+  !
+  PUBLIC :: is_mdi, mdi_forces, socket, scf_current
+  PUBLIC :: firststep, combuf
   PUBLIC :: recv_npotential, recv_potential
   PUBLIC :: mdi_add_potential, set_mdi_forces
   PUBLIC :: get_mdi_options
   PUBLIC :: read_qmmm_mode
+  PUBLIC :: recv_nat_mm
   !
 CONTAINS
   !
@@ -348,6 +356,22 @@ CONTAINS
     CALL qmmm_initialization()
     !
   END SUBROUTINE read_qmmm_mode
+  !
+  !
+  SUBROUTINE recv_nat_mm()
+    !
+    INTEGER :: natoms_in
+    INTEGER :: ierr
+    !
+    ! ... Reads the number of mm atoms
+    !
+    IF ( ionode ) CALL MDI_Recv( natoms_in, 1, MDI_INT, socket, ierr )
+    !
+    IF ( ionode ) write(*,*) " @ DRIVER MODE: Read mm natoms: ",natoms_in
+    !
+    CALL set_mm_natoms(natoms_in)
+    !
+  END SUBROUTINE recv_nat_mm
 
 
 
