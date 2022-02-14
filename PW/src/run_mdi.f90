@@ -14,6 +14,7 @@ MODULE run_mdi
                                MDI_Accept_Communicator, &
                                MDI_CHAR, MDI_DOUBLE, MDI_INT, &
                                MDI_Set_execute_command_func
+  use mdi_engine,       ONLY : socket
   !
   USE ISO_C_BINDING
   !
@@ -24,7 +25,6 @@ MODULE run_mdi
   !
   REAL*8, ALLOCATABLE :: combuf(:)
   REAL*8              :: omega_reset
-  INTEGER             :: socket
   INTEGER             :: nat
   INTEGER             :: rid, rid_old=-1
   LOGICAL :: scf_current=.false.
@@ -209,13 +209,6 @@ CONTAINS
     USE extrapolation,    ONLY : update_file, update_pot
     USE io_files,         ONLY : iunupdate, nd_nmbr, prefix, tmp_dir, postfix, &
          wfc_dir, delete_if_present, seqopn
-    USE qmmm,             ONLY : qmmm_mode, qmmm_initialization, set_mm_natoms, &
-         set_qm_natoms, set_ntypes, set_cell_mm, &
-         read_mm_charge, read_mm_mask, read_mm_coord, &
-         read_types, read_mass, write_ec_force, &
-         write_mm_force, qmmm_center_molecule, &
-         qmmm_minimum_image, read_aradii, send_ndensity, &
-         send_cdensity, send_density
     USE scf,              ONLY : rho
     USE lsda_mod,         ONLY : nspin
     USE fft_base,         ONLY : dfftp
@@ -429,24 +422,6 @@ CONTAINS
     CALL set_ntypes(ntypes_in)
     !
   END SUBROUTINE read_ntypes
-  !
-  !
-  SUBROUTINE read_qmmm_mode()
-    USE qmmm,             ONLY : qmmm_mode
-    USE mp_global,        ONLY : intra_image_comm
-    !
-    INTEGER :: ierr
-    !
-    ! ... Reads the number of atoms
-    !
-    IF ( ionode ) CALL MDI_Recv( qmmm_mode, 1, MDI_INT, socket, ierr )
-    CALL mp_bcast( qmmm_mode, ionode_id, intra_image_comm )
-    !
-    IF ( ionode ) write(*,*) " @ DRIVER MODE: Read qmmm mode: ",qmmm_mode
-    !
-    CALL qmmm_initialization()
-    !
-  END SUBROUTINE read_qmmm_mode
   !
   !
   SUBROUTINE read_cell()
