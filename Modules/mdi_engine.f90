@@ -56,9 +56,11 @@ MODULE mdi_engine
   !
   REAL*8, ALLOCATABLE :: combuf(:)
   LOGICAL :: firststep
+  INTEGER             :: rid, rid_old=-1
   !
   PUBLIC :: is_mdi, mdi_forces, socket, scf_current
-  PUBLIC :: firststep, combuf
+  PUBLIC :: firststep, combuf, rid, rid_old
+  !
   PUBLIC :: recv_npotential, recv_potential
   PUBLIC :: mdi_add_potential, set_mdi_forces
   PUBLIC :: get_mdi_options
@@ -372,6 +374,8 @@ CONTAINS
     CALL set_mm_natoms(natoms_in)
     !
   END SUBROUTINE recv_nat_mm
+  !
+  !
 
 
 

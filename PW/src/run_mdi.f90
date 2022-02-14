@@ -8,26 +8,23 @@
 !----------------------------------------------------------------------------
 MODULE run_mdi
   !
-  USE io_global,        ONLY : ionode, ionode_id
-  USE cell_base,        ONLY : alat, at, omega, bg
-  USE mdi,              ONLY : MDI_Send, MDI_Recv, MDI_Recv_Command, &
-                               MDI_Accept_Communicator, &
-                               MDI_CHAR, MDI_DOUBLE, MDI_INT, &
-                               MDI_Set_execute_command_func
-  use mdi_engine,       ONLY : socket, scf_current, get_mdi_options, &
-                               firststep, combuf, &
-                               recv_nat_mm
+!  USE io_global,        ONLY : ionode, ionode_id
+!  USE cell_base,        ONLY : alat, at, omega, bg
+!  USE mdi,              ONLY : MDI_Send, MDI_Recv, MDI_Recv_Command, &
+!                               MDI_Accept_Communicator, &
+!                               MDI_CHAR, MDI_DOUBLE, MDI_INT, &
+!                               MDI_Set_execute_command_func
+!  use mdi_engine,       ONLY : socket, scf_current, get_mdi_options, &
+!                               firststep, combuf, rid, rid_old, &
+!                               recv_nat_mm
   !
-  USE ISO_C_BINDING
+!  USE ISO_C_BINDING
   !
   IMPLICIT NONE
   SAVE
   !
   PRIVATE
   !
-  INTEGER             :: nat
-  INTEGER             :: rid, rid_old=-1
-
   PUBLIC :: mdi_listen
 
 CONTAINS
@@ -38,6 +35,12 @@ CONTAINS
     USE scf,              ONLY : rho
     USE lsda_mod,         ONLY : nspin
     USE fft_base,         ONLY : dfftp
+    USE mdi_engine,       ONLY : scf_current, socket, recv_npotential, recv_potential, &
+                                 recv_nat_mm, read_qmmm_mode
+    USE qmmm,             ONLY : read_aradii, send_cdensity, qmmm_minimum_image, &
+                                 qmmm_center_molecule, write_mm_force, read_mm_charge, &
+                                 read_mm_mask, read_mm_coord, write_ec_force, &
+                                 send_ndensity, send_density, read_types, read_mass
 
     IMPLICIT NONE
 
@@ -51,7 +54,7 @@ CONTAINS
     LOGICAL :: isinit=.false., hasdata=.false., exst
     CHARACTER*12 :: header
     CHARACTER*1024 :: parbuffer
-    INTEGER :: nat, rid, ccmd, i, info, rid_old=-1
+    INTEGER :: ccmd, i, info
     REAL*8 :: sigma(3,3), at_reset(3,3), dist_reset, ang_reset
     REAL *8 :: cellih(3,3), vir(3,3), pot
     REAL*8 :: dist_ang(6), dist_ang_reset(6)
@@ -186,11 +189,15 @@ CONTAINS
 
   END SUBROUTINE MDI_EXECUTE_COMMAND
 
+
+
   
   SUBROUTINE mdi_listen ( srvaddress, exit_status, mdi_options ) 
     !!
     !! Driver for IPI
     !!
+    USE ISO_C_BINDING
+    !
     USE io_global,        ONLY : stdout, ionode, ionode_id
     USE parameters,       ONLY : ntypx, npk, lmaxx
     USE check_stop,       ONLY : check_stop_init
@@ -198,7 +205,7 @@ CONTAINS
     USE control_flags,    ONLY : gamma_only, conv_elec, istep, ethr, lscf, lmd
     USE cellmd,           ONLY : lmovecell
     USE force_mod,        ONLY : lforce, lstres
-    USE ions_base,        ONLY : tau, nat_input => nat
+    USE ions_base,        ONLY : tau, nat
     USE cell_base,        ONLY : alat, at, omega, bg
     USE cellmd,           ONLY : omega_old, at_old, calc
     USE force_mod,        ONLY : force
@@ -210,11 +217,15 @@ CONTAINS
     USE lsda_mod,         ONLY : nspin
     USE fft_base,         ONLY : dfftp
     !<<<
-    USE mdi_engine,       ONLY : is_mdi, recv_npotential, recv_potential, mdi_forces
+    USE mdi,              ONLY : MDI_Accept_communicator, MDI_Set_execute_command_func, &
+                                 MDI_Recv_command
+    USE mdi_engine,       ONLY : is_mdi, recv_npotential, recv_potential, mdi_forces, &
+                                 rid, rid_old, get_mdi_options, firststep, socket
     !USE command_line_options, ONLY : command_line
     !>>>
     !
     IMPLICIT NONE
+    !
     INTEGER, INTENT(OUT) :: exit_status
     !! Gives the exit status at the end
     CHARACTER(*), INTENT(IN) :: srvaddress
@@ -227,7 +238,7 @@ CONTAINS
     LOGICAL :: isinit=.false., hasdata=.false., exst
     CHARACTER*12 :: header
     CHARACTER*1024 :: parbuffer
-    INTEGER :: nat, rid, ccmd, i, info, rid_old=-1
+    INTEGER :: ccmd, i, info
     REAL*8 :: sigma(3,3), at_reset(3,3), dist_reset, ang_reset
     REAL *8 :: cellih(3,3), vir(3,3), pot
     REAL*8 :: dist_ang(6), dist_ang_reset(6)
@@ -295,7 +306,6 @@ CONTAINS
     WRITE(6,*)'is_mdi: ',is_mdi
     WRITE(6,*)'Calling create socket'
     IF (is_mdi) THEN
-       nat = nat_input
        CALL allocate_nat_arrays()
     END IF
     !
@@ -335,7 +345,13 @@ CONTAINS
   !
   !
   SUBROUTINE set_replica_id()
+    USE io_global,        ONLY : ionode, ionode_id
     USE mp_global,        ONLY : intra_image_comm
+    USE mdi_engine,       ONLY : firststep, rid, rid_old, socket
+    USE mdi,              ONLY : MDI_INT, MDI_Recv
+    USE mp,               ONLY : mp_bcast
+    !
+    IMPLICIT NONE
     !
     INTEGER :: ierr
     !
@@ -358,16 +374,21 @@ CONTAINS
   !
   !
   SUBROUTINE set_nat()
+    USE io_global,        ONLY : ionode, ionode_id
     USE mp_global,        ONLY : intra_image_comm
-    USE ions_base,        ONLY : nat_input => nat
+    USE ions_base,        ONLY : nat
+    USE mdi_engine,       ONLY : socket
+    USE mdi,              ONLY : MDI_INT, MDI_Recv
+    USE mp,               ONLY : mp_bcast
+    !
+    IMPLICIT NONE
     !
     INTEGER :: ierr
     !
     ! ... Reads the number of atoms
     !
     IF ( ionode ) CALL MDI_Recv( nat, 1, MDI_INT, socket, ierr )
-    CALL mp_bcast(    nat, ionode_id, intra_image_comm )
-    nat_input = nat
+    CALL mp_bcast( nat, ionode_id, intra_image_comm )
     !
     !
     CALL allocate_nat_arrays()
@@ -376,6 +397,12 @@ CONTAINS
   !
   !
   SUBROUTINE allocate_nat_arrays()
+    USE io_global,        ONLY : ionode
+    USE mdi_engine,       ONLY : combuf
+    USE ions_base,        ONLY : nat
+    USE qmmm,             ONLY : set_qm_natoms
+    !
+    IMPLICIT NONE
     !
     ! ... Allocate the dummy array for the atoms coordinates
     !
@@ -390,6 +417,12 @@ CONTAINS
   !
   !
   SUBROUTINE read_ntypes()
+    USE io_global,        ONLY : ionode
+    USE mdi_engine,       ONLY : socket
+    USE mdi,              ONLY : MDI_INT, MDI_Recv
+    USE qmmm,             ONLY : set_ntypes
+    !
+    IMPLICIT NONE
     !
     INTEGER :: ntypes_in
     INTEGER :: ierr
@@ -406,8 +439,16 @@ CONTAINS
   !
   !
   SUBROUTINE read_cell()
+    USE io_global,        ONLY : ionode, ionode_id
     USE mp_global,        ONLY : intra_image_comm
     USE cellmd,           ONLY : omega_old, at_old
+    USE mdi_engine,       ONLY : firststep
+    USE cell_base,        ONLY : alat, at, omega
+    USE mdi,              ONLY : MDI_DOUBLE, MDI_Recv
+    USE mdi_engine,       ONLY : socket
+    USE mp,               ONLY : mp_bcast
+    !
+    IMPLICIT NONE
     !
     INTEGER :: ierr
     REAL *8 :: cellh(3,3)
@@ -444,8 +485,14 @@ CONTAINS
   !
   !
   SUBROUTINE send_cell()
+    USE cell_base,        ONLY : alat, at
+    USE io_global,        ONLY : ionode
     !
     USE kinds,            ONLY : DP
+    USE mdi,              ONLY : MDI_DOUBLE, MDI_Send
+    USE mdi_engine,       ONLY : socket
+    !
+    IMPLICIT NONE
     !
     REAL(DP) :: cell_mdi(9)
     INTEGER :: ierr
@@ -467,6 +514,10 @@ CONTAINS
   !
   !
   SUBROUTINE update_cell()
+    USE cell_base,        ONLY : alat, at, omega, bg
+    USE io_global,        ONLY : ionode
+    !
+    IMPLICIT NONE
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Updating cell "
     !
@@ -484,6 +535,12 @@ CONTAINS
   !
   !
   SUBROUTINE read_cell_mm()
+    USE io_global,        ONLY : ionode
+    USE mdi,              ONLY : MDI_DOUBLE, MDI_Recv
+    USE mdi_engine,       ONLY : socket
+    USE qmmm,             ONLY : set_cell_mm
+    !
+    IMPLICIT NONE
     !
     INTEGER :: ierr
     REAL *8 :: mtxbuffer(9)
@@ -500,8 +557,16 @@ CONTAINS
   !
   !
   SUBROUTINE read_coordinates()
+    USE cell_base,        ONLY : alat
+    USE io_global,        ONLY : ionode, ionode_id
     USE mp_global,        ONLY : intra_image_comm
     USE ions_base,        ONLY : tau
+    USE mdi,              ONLY : MDI_DOUBLE, MDI_Recv
+    USE mdi_engine,       ONLY : socket, combuf
+    USE ions_base,        ONLY : nat
+    USE mp,               ONLY : mp_bcast
+    !
+    IMPLICIT NONE
     !
     INTEGER :: i, ierr
     !
@@ -527,7 +592,14 @@ CONTAINS
   !
   !
   SUBROUTINE send_coordinates()
+    USE cell_base,        ONLY : alat
+    USE io_global,        ONLY : ionode
     USE ions_base,        ONLY : tau
+    USE mdi,              ONLY : MDI_DOUBLE, MDI_Send
+    USE mdi_engine,       ONLY : socket, combuf
+    USE ions_base,        ONLY : nat
+    !
+    IMPLICIT NONE
     !
     INTEGER :: ierr
     !
@@ -548,8 +620,14 @@ CONTAINS
   !
   SUBROUTINE send_charges()
     !
+    USE ions_base,        ONLY : nat
+    USE io_global,        ONLY : ionode
     USE kinds,            ONLY : DP
     USE ions_base,        ONLY : zv, ityp
+    USE mdi,              ONLY : MDI_DOUBLE, MDI_Send
+    USE mdi_engine,       ONLY : socket
+    !
+    IMPLICIT NONE
     !
     REAL(DP) :: charges(nat)
     INTEGER  :: i, ierr
@@ -574,7 +652,11 @@ CONTAINS
   !
   !
   SUBROUTINE run_scf()
+    USE extrapolation,    ONLY : update_pot
     USE control_flags,    ONLY : conv_elec
+    USE mdi_engine,       ONLY : scf_current
+    !
+    IMPLICIT NONE
     !
     ! ... Initialize the G-Vectors when needed
     !
@@ -609,7 +691,12 @@ CONTAINS
   !
   !
   SUBROUTINE write_energy()
+    USE io_global,        ONLY : ionode
     USE ener,             ONLY : etot
+    USE mdi,              ONLY : MDI_DOUBLE, MDI_Send
+    USE mdi_engine,       ONLY : scf_current, socket
+    !
+    IMPLICIT NONE
     !
     INTEGER :: ierr
     !
@@ -628,7 +715,12 @@ CONTAINS
   !
   !
   SUBROUTINE write_forces()
-    USE mdi_engine,       ONLY : mdi_forces
+    USE io_global,        ONLY : ionode
+    USE mdi_engine,       ONLY : mdi_forces, combuf, scf_current, socket
+    USE mdi,              ONLY : MDI_DOUBLE, MDI_Send
+    USE ions_base,        ONLY : nat
+    !
+    IMPLICIT NONE
     !
     INTEGER :: ierr
     !
@@ -655,6 +747,13 @@ CONTAINS
   !
   !
   SUBROUTINE send_natoms()
+    USE ions_base,        ONLY : nat
+    USE io_global,        ONLY : ionode
+    USE mdi,              ONLY : MDI_INT, MDI_Send
+    USE mdi_engine,       ONLY : socket
+    !
+    IMPLICIT NONE
+    !
     INTEGER :: ierr
     !
     ! ... Send the number of atoms in the system
@@ -666,8 +765,13 @@ CONTAINS
   !
   !
   SUBROUTINE initialize_g_vectors()
+    USE io_global,        ONLY : ionode, ionode_id
     USE cellmd,           ONLY : omega_old, at_old
     USE mp_global,        ONLY : intra_image_comm
+    USE cell_base,        ONLY : at, bg, omega
+    USE mp,               ONLY : mp_bcast
+    !
+    IMPLICIT NONE
     !
     CALL clean_pw( .FALSE. )
     CALL init_run()
@@ -687,8 +791,10 @@ CONTAINS
   END SUBROUTINE initialize_g_vectors
   !
   SUBROUTINE reset_history_for_extrapolation()
+    USE io_global,        ONLY : ionode
     USE io_files,         ONLY : iunupdate, nd_nmbr, prefix, tmp_dir, postfix, &
                                  wfc_dir, delete_if_present, seqopn
+    USE extrapolation,    ONLY : update_file
     !
     ! ... Resets history of wavefunction and rho as if the
     ! ... previous step was the first one in the calculation.
