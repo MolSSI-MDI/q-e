@@ -57,9 +57,11 @@ MODULE mdi_engine
   REAL*8, ALLOCATABLE :: combuf(:)
   LOGICAL :: firststep
   INTEGER             :: rid, rid_old=-1
+  LOGICAL :: mdi_exit_flag = .false.
   !
   PUBLIC :: is_mdi, mdi_forces, socket, scf_current
   PUBLIC :: firststep, combuf, rid, rid_old
+  PUBLIC :: mdi_exit_flag
   !
   PUBLIC :: recv_npotential, recv_potential
   PUBLIC :: mdi_add_potential, set_mdi_forces

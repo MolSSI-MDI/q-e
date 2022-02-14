@@ -36,7 +36,7 @@ CONTAINS
     USE lsda_mod,         ONLY : nspin
     USE fft_base,         ONLY : dfftp
     USE mdi_engine,       ONLY : scf_current, socket, recv_npotential, recv_potential, &
-                                 recv_nat_mm, read_qmmm_mode
+                                 recv_nat_mm, read_qmmm_mode, mdi_exit_flag
     USE qmmm,             ONLY : read_aradii, send_cdensity, qmmm_minimum_image, &
                                  qmmm_center_molecule, write_mm_force, read_mm_charge, &
                                  read_mm_mask, read_mm_coord, write_ec_force, &
@@ -177,6 +177,8 @@ CONTAINS
         CALL recv_potential(socket)
         !
      CASE( "EXIT" )
+        mdi_exit_flag = .true.
+        WRITE(6,*)'SET EXIT FLAG: ',mdi_exit_flag
         ierr = 0
         RETURN
         !
@@ -220,7 +222,8 @@ CONTAINS
     USE mdi,              ONLY : MDI_Accept_communicator, MDI_Set_execute_command_func, &
                                  MDI_Recv_command
     USE mdi_engine,       ONLY : is_mdi, recv_npotential, recv_potential, mdi_forces, &
-                                 rid, rid_old, get_mdi_options, firststep, socket
+                                 rid, rid_old, get_mdi_options, firststep, socket, &
+                                 mdi_exit_flag
     !USE command_line_options, ONLY : command_line
     !>>>
     !
@@ -311,7 +314,7 @@ CONTAINS
     WRITE(6,*)'Finished calling create socket'
     !>>>
     !
-    driver_loop: DO
+    DO WHILE ( .not. mdi_exit_flag )
        !
        IF ( ionode ) CALL MDI_Recv_Command( header, socket, ierr )
        WRITE(6,*)'==============================='
@@ -322,14 +325,11 @@ CONTAINS
        !
        IF ( ionode ) write(*,*) " @ DRIVER MODE: Message from server: ", trim( header )
        !
-       
-       
        call mdi_execute_command(header, socket, ierr)
        exit_status = ierr
-       
-     
+       WRITE(6,*)'GET EXIT FLAG: ',mdi_exit_flag
        !
-    END DO driver_loop
+    END DO
     !
 9010 FORMAT( /,5X,'Current dimensions of program PWSCF are:', &
           & /,5X,'Max number of different atomic species (ntypx) = ',I2,&

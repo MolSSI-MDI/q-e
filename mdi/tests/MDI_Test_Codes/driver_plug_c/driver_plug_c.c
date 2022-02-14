@@ -15,7 +15,6 @@ int code_for_plugin_instance(void* mpi_comm_ptr, MDI_Comm mdi_comm, void* class_
   int my_rank;
   MPI_Comm_rank(mpi_comm, &my_rank);
 
-  /*
   // Determine the name of the engine
   char* engine_name = malloc( MDI_NAME_LENGTH * sizeof(char) );
   if ( MDI_Send_command("<NAME", mdi_comm) != 0 ) {
@@ -41,8 +40,12 @@ int code_for_plugin_instance(void* mpi_comm_ptr, MDI_Comm mdi_comm, void* class_
   }
 
   // Broadcast the number of atoms to all ranks within this plugin instance
-  MPI_Bcast(&natoms, 1, MPI_INT, 0, mpi_comm);
+  //MPI_Bcast(&natoms, 1, MPI_INT, 0, mpi_comm);
+  if ( my_rank == 0 ) {
+    printf("Engine natoms: %d\n", natoms);
+  }
 
+  /*
   // Get the nuclear coordinates
   double* coords = new double [3*natoms];
   if ( MDI_Send_command("<COORDS", mdi_comm) != 0 ) {
