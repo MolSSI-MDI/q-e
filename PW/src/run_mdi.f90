@@ -187,7 +187,7 @@ CONTAINS
 
 
   
-  SUBROUTINE mdi_listen ( srvaddress, exit_status ) 
+  SUBROUTINE mdi_listen ( exit_status )
     !!
     !! Driver for IPI
     !!
@@ -222,10 +222,8 @@ CONTAINS
     !
     IMPLICIT NONE
     !
-    INTEGER, INTENT(OUT) :: exit_status
     !! Gives the exit status at the end
-    CHARACTER(*), INTENT(IN) :: srvaddress
-    !! Gives the socket address 
+    INTEGER, INTENT(OUT) :: exit_status
     !
     ! Local variables
     INTEGER, PARAMETER :: MSGLEN=12

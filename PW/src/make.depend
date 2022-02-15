@@ -1553,6 +1553,7 @@ pwscf.o : ../../Modules/command_line_options.o
 pwscf.o : ../../Modules/environment.o
 pwscf.o : ../../Modules/mp_global.o
 pwscf.o : ../../Modules/read_input.o
+pwscf.o : run_mdi.o
 qvan2.o : ../../Modules/kind.o
 qvan2.o : ../../Modules/uspp.o
 qvan2.o : pwcom.o

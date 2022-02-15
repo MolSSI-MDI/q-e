@@ -41,6 +41,7 @@ PROGRAM pwscf
   !<<<
   !USE mdi,               ONLY : MDI_Init
   USE mdi_engine,        ONLY : get_mdi_options
+  USE run_mdi,           ONLY : mdi_listen
   USE parallel_include
   !>>>
   !
@@ -96,7 +97,11 @@ PROGRAM pwscf
   ! When running as library
      !
      CALL read_input_file ('PW+iPi', input_file_ )
-     CALL run_driver ( srvaddress, exit_status )
+     IF ( trim(mdi_options) == ' ' ) THEN
+        CALL run_driver ( srvaddress, exit_status )
+     ELSE
+        CALL mdi_listen ( exit_status )
+     END IF
      !
   END IF
   !

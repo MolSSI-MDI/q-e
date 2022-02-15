@@ -95,7 +95,7 @@ MODULE MDI_IMPLEMENTATION
     !
     retval = 0
     !CALL run_pwscf  ( retval )
-    CALL mdi_listen( ' ', retval )
+    CALL mdi_listen( retval )
     !
     MDI_Plugin_init_plugin = retval
     !
