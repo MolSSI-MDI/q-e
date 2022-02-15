@@ -15,7 +15,7 @@ all : libmdi.a
 libmdi.a : 
 	- mkdir build
 	- cd build; \
-          cmake -Dlibtype=SHARED -Dlanguage=Fortran -Dtest_codes=ON -D CMAKE_C_COMPILER=$(CC) \
+          cmake -Dlibtype=STATIC -Dlanguage=Fortran -Dtest_codes=ON -D CMAKE_C_COMPILER=$(CC) \
 	     -D CMAKE_Fortran_COMPILER=$(MPIF90) .. -D CMAKE_C_FLAGS="-fPIC" -D CMAKE_Fortran_FLAGS="-fPIC" ; \
           make
 
