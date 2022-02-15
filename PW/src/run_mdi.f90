@@ -58,13 +58,8 @@ CONTAINS
     REAL*8 :: sigma(3,3), at_reset(3,3), dist_reset, ang_reset
     REAL *8 :: cellih(3,3), vir(3,3), pot
     REAL*8 :: dist_ang(6), dist_ang_reset(6)
-    WRITE(6,*)'--------------------------------------'
-    WRITE(6,*)'--------------------------------------'
-    WRITE(6,*)'IN MDI_EXECUTE_COMMAND'
-    WRITE(6,*)'COMMAND: ',trim(command)
-    WRITE(6,*)'--------------------------------------'
-    WRITE(6,*)'--------------------------------------'
-    FLUSH(6)
+
+    ierr = 0
 
      SELECT CASE ( trim( command ) )
      CASE( ">RID" )
@@ -179,10 +174,8 @@ CONTAINS
      CASE( "EXIT" )
         mdi_exit_flag = .true.
         WRITE(6,*)'SET EXIT FLAG: ',mdi_exit_flag
-        ierr = 0
         RETURN
         !
-     !>>>
      CASE DEFAULT
         IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Unrecognized command: ",trim(header)
         ierr = 130
@@ -317,10 +310,6 @@ CONTAINS
     DO WHILE ( .not. mdi_exit_flag )
        !
        IF ( ionode ) CALL MDI_Recv_Command( header, socket, ierr )
-       WRITE(6,*)'==============================='
-       WRITE(6,*)'New command: ',trim(header)
-       WRITE(6,*)'==============================='
-       FLUSH(6)
        CALL mp_bcast( header, ionode_id, intra_image_comm )
        !
        IF ( ionode ) write(*,*) " @ DRIVER MODE: Message from server: ", trim( header )
