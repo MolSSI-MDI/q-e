@@ -26,6 +26,7 @@ PROGRAM QEMDI
   ! Get the MDI command-line options
   narg = command_argument_count()
   mdi_options = ' '
+  input_file = ' '
 
   DO iarg=1, narg
     CALL get_command_argument(iarg, arg)
@@ -42,9 +43,26 @@ PROGRAM QEMDI
 !          EXIT 1
        END IF
     END IF
+    IF ( TRIM (arg) == '-in' ) THEN
+       IF ( input_file == ' ' ) THEN
+          IF ( iarg+1 > narg ) THEN
+             CALL infomsg('main','missing argument for -in command-line argument')
+!             EXIT 1
+          ELSE
+             CALL get_command_argument(iarg+1, input_file)
+          END IF
+       ELSE
+          CALL infomsg('main','duplicated -in command-line argument')
+!          EXIT 1
+       END IF
+    END IF
   END DO
   IF ( mdi_options == ' ' ) THEN
     CALL infomsg('main','missing -mdi command-line argument')
+!    EXIT 1
+  END IF
+  IF ( input_file == ' ' ) THEN
+    CALL infomsg('main','missing -in command-line argument')
 !    EXIT 1
   END IF
 
@@ -84,7 +102,7 @@ PROGRAM QEMDI
   CALL environment_start ( 'PWSCF' )
   WRITE(stdout,*)'HERE 4'
   !
-  input_file = '/repo/tests/water/qe.in'
+  !input_file = '/repo/tests/water/qe.in'
   CALL read_input_file ('PW+iPi', input_file )
   WRITE(stdout,*)'HERE 5'
 

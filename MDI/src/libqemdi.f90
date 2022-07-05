@@ -901,124 +901,130 @@ MODULE MDI_IMPLEMENTATION
 
     ierr = 0
 
-     SELECT CASE ( trim( command ) )
-     CASE( ">RID" )
-        CALL set_replica_id()
-        isinit=.true.
-        !
-     CASE( ">NATOMS" )
-        scf_current = .false.
-        CALL set_nat()
-        !
-     CASE( ">MM_NATOMS" )
-        scf_current = .false.
-        CALL recv_nat_mm()
-        !
-     CASE( ">NTYPES" )
-        scf_current = .false.
-        CALL read_ntypes()
-        !
-     CASE( ">CELL" )
-        scf_current = .false.
-        CALL read_cell()
-        CALL update_cell()
-        !
-     CASE( "<CELL" )
-        CALL send_cell()
-        !
-     CASE( ">COORDS" )
-        scf_current = .false.
-        CALL read_coordinates()
-        !
-     CASE( "<COORDS" )
-        CALL send_coordinates()
-        !
-     CASE( ">QMMM_MODE" )
-        scf_current = .false.
-        CALL read_qmmm_mode()
-        !
-     CASE( ">MM_CELL" )
-        scf_current = .false.
-        CALL read_cell_mm()
-        !
-     CASE( ">MM_CHARGES" )
-        scf_current = .false.
-        CALL read_mm_charge(socket)
-        !
-     CASE( ">MM_MASK" )
-        scf_current = .false.
-        CALL read_mm_mask(socket)
-        !
-     CASE( ">MM_COORDS" )
-        scf_current = .false.
-        CALL read_mm_coord(socket)
-        !
-     CASE( ">MM_TYPES" )
-        scf_current = .false.
-        CALL read_types(socket)
-        !
-     CASE( ">MM_MASSES" )
-        scf_current = .false.
-        CALL read_mass(socket)
-        !
-     CASE( ">ARADII" )
-        scf_current = .false.
-        CALL read_aradii(socket)
-        !
-     CASE( "RECENTER" )
-        scf_current = .false.
-        CALL qmmm_center_molecule()
-        CALL qmmm_minimum_image()
-        !
-     CASE( "SCF" )
-        CALL run_scf()
-        !
-     CASE( "<ENERGY" )
-        CALL write_energy()
-        !
-     CASE( "<FORCES" )
-        CALL write_forces()
-        !
-     CASE( "<EC_FORCES" )
-        CALL write_ec_force(socket)
-        !
-     CASE( "<MM_FORCES" )
-        CALL write_mm_force(socket, rho%of_r, nspin, dfftp)
-        !
-     CASE( "<NATOMS" )
-        CALL send_natoms()
-        !
-     CASE( "<NDENSITY" )
-        CALL send_ndensity(socket, dfftp)
-        !
-     CASE( "<CDENSITY" )
-        CALL send_cdensity(socket, dfftp)
-        !
-     CASE( "<DENSITY" )
-        IF ( .not. scf_current ) THEN
-           CALL run_scf()
-        END IF
-        CALL send_density(socket, rho%of_r, nspin, dfftp)
-        !
-     CASE( "<CHARGES" )
-        CALL send_charges()
-        !
-     CASE( ">NPOTENTIAL" )
-        scf_current = .false.
-        CALL recv_npotential(socket)
-        !
-     CASE( ">POTENTIAL" )
-        scf_current = .false.
-        CALL recv_potential(socket)
-        !
-     CASE( "EXIT" )
-        mdi_exit_flag = .true.
-        !
-     CASE DEFAULT
-        IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Unrecognized command: ",trim(header)
-        ierr = 130
-     END SELECT
-     !
+    SELECT CASE ( trim( command ) )
+    CASE( ">RID" )
+       CALL set_replica_id()
+       isinit=.true.
+       !
+    CASE( ">NATOMS" )
+       scf_current = .false.
+       CALL set_nat()
+       !
+    CASE( ">MM_NATOMS" )
+       scf_current = .false.
+       CALL recv_nat_mm()
+       !
+    CASE( ">NTYPES" )
+       scf_current = .false.
+       CALL read_ntypes()
+       !
+    CASE( ">CELL" )
+       scf_current = .false.
+       CALL read_cell()
+       CALL update_cell()
+       !
+    CASE( "<CELL" )
+       CALL send_cell()
+       !
+    CASE( ">COORDS" )
+       scf_current = .false.
+       CALL read_coordinates()
+       !
+    CASE( "<COORDS" )
+       CALL send_coordinates()
+       !
+    CASE( ">QMMM_MODE" )
+       scf_current = .false.
+       CALL read_qmmm_mode()
+       !
+    CASE( ">MM_CELL" )
+       scf_current = .false.
+       CALL read_cell_mm()
+       !
+    CASE( ">MM_CHARGES" )
+       scf_current = .false.
+       CALL read_mm_charge(socket)
+       !
+    CASE( ">MM_MASK" )
+       scf_current = .false.
+       CALL read_mm_mask(socket)
+       !
+    CASE( ">MM_COORDS" )
+       scf_current = .false.
+       CALL read_mm_coord(socket)
+       !
+    CASE( ">MM_TYPES" )
+       scf_current = .false.
+       CALL read_types(socket)
+       !
+    CASE( ">MM_MASSES" )
+       scf_current = .false.
+       CALL read_mass(socket)
+       !
+    CASE( ">ARADII" )
+       scf_current = .false.
+       CALL read_aradii(socket)
+       !
+    CASE( "RECENTER" )
+       scf_current = .false.
+       CALL qmmm_center_molecule()
+       CALL qmmm_minimum_image()
+       !
+    CASE( "SCF" )
+       CALL run_scf()
+       !
+    CASE( "<ENERGY" )
+       CALL write_energy()
+       !
+    CASE( "<PE" )
+       CALL write_energy()
+       !
+    CASE( "<FORCES" )
+       CALL write_forces()
+       !
+    CASE( "<EC_FORCES" )
+       CALL write_ec_force(socket)
+       !
+    CASE( "<MM_FORCES" )
+       CALL write_mm_force(socket, rho%of_r, nspin, dfftp)
+       !
+    CASE( "<NATOMS" )
+       CALL send_natoms()
+       !
+    CASE( "<NDENSITY" )
+       CALL send_ndensity(socket, dfftp)
+       !
+    CASE( "<CDENSITY" )
+       CALL send_cdensity(socket, dfftp)
+       !
+    CASE( "<DENSITY" )
+       IF ( .not. scf_current ) THEN
+          CALL run_scf()
+       END IF
+       CALL send_density(socket, rho%of_r, nspin, dfftp)
+       !
+    CASE( "<CHARGES" )
+       CALL send_charges()
+       !
+    CASE( ">NPOTENTIAL" )
+       scf_current = .false.
+       CALL recv_npotential(socket)
+       !
+    CASE( ">POTENTIAL" )
+       scf_current = .false.
+       CALL recv_potential(socket)
+       !
+    CASE( "<STRESS" )
+       CALL send_stress()
+       !
+    CASE( "EXIT" )
+       mdi_exit_flag = .true.
+       !
+    CASE DEFAULT
+       IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Unrecognized command: ",trim(command)
+       ierr = 130
+    END SELECT
+    !
   END SUBROUTINE MDI_EXECUTE_COMMAND
 
 
@@ -1367,7 +1373,39 @@ MODULE MDI_IMPLEMENTATION
     CALL MDI_Send( nat, 1, MDI_INT, socket, ierr )
     !
   END SUBROUTINE send_natoms
-  !>>>
+  !
+  !
+  SUBROUTINE send_stress()
+    USE cell_base,        ONLY : alat, at, omega
+    USE io_global,        ONLY : ionode
+    !
+    USE kinds,            ONLY : DP
+    USE mdi,              ONLY : MDI_DOUBLE, MDI_Send
+    USE mdi_engine,       ONLY : scf_current, socket
+    !
+    IMPLICIT NONE
+    !
+    REAL(DP) :: stress_mdi(9)
+    INTEGER :: ierr
+    REAL*8 :: sigma(3,3), vir(3,3)
+    !
+    ! ... Run an SCF calculation
+    !
+    IF ( .not. scf_current ) THEN
+       CALL run_scf()
+    END IF
+    !
+    ! ... Compute stress
+    !
+    CALL stress()
+    !
+    vir=TRANSPOSE( sigma ) * omega * 0.5          ! virial in a.u & no omega scal.
+    !
+    stress_mdi(1:9) = RESHAPE( vir, (/9/))
+    !
+    CALL MDI_Send( stress_mdi, 9, MDI_DOUBLE, socket, ierr)
+    !
+  END SUBROUTINE send_stress
   !
   !
   SUBROUTINE initialize_g_vectors()
