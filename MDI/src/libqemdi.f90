@@ -11,10 +11,13 @@ MODULE MDI_IMPLEMENTATION
        MDI_Register_callback, MDI_COMMAND_LENGTH, MDI_MPI_get_world_comm, &
        MDI_Plugin_get_argc, MDI_Plugin_get_arg
   USE mdi_engine,       ONLY : is_mdi, mdi_forces, &
-       rid, rid_old, get_mdi_options, firststep, socket, &
-       mdi_exit_flag
- 
+       rid, rid_old, get_mdi_options, socket, mdi_exit_flag
+
   IMPLICIT NONE
+
+  LOGICAL :: cell_changed = .true.
+  LOGICAL :: mdi_first_scf = .true.
+  REAL*8 :: omega_reset
 
   CONTAINS
 
@@ -146,8 +149,6 @@ MODULE MDI_IMPLEMENTATION
 
 
 
-
-
   SUBROUTINE mdi_listen ( exit_status )
     !!
     !! Driver for IPI
@@ -160,7 +161,6 @@ MODULE MDI_IMPLEMENTATION
     USE mp_global,        ONLY : mp_bcast, mp_global_end, intra_image_comm
     USE control_flags,    ONLY : gamma_only, conv_elec, istep, ethr, lscf, lmd, &
                                  lforce => tprnfor, tstress
-    USE cellmd,           ONLY : lmovecell
     USE ions_base,        ONLY : tau, nat
     USE cell_base,        ONLY : alat, at, omega, bg
     USE cellmd,           ONLY : omega_old, at_old, calc
@@ -199,16 +199,14 @@ MODULE MDI_IMPLEMENTATION
     PROCEDURE(mdi_execute_command), POINTER :: mdi_execute_command_func => null()
     TYPE(C_PTR)                         :: class_obj
     mdi_execute_command_func => mdi_execute_command
-    
+
     !----------------------------------------------------------------------------
     !
     lscf      = .true.
     lforce    = .true.
     tstress   = .true.
     lmd       = .true.
-    lmovecell = .true.
-    firststep = .true.
-    !omega_reset = 0.d0
+    omega_reset = 0.d0
     !
     exit_status = 0
     !
@@ -231,10 +229,15 @@ MODULE MDI_IMPLEMENTATION
     !
     CALL check_stop_init()
     CALL setup()
+    !
     ! ... Initializations
+    !
     CALL init_run()
     !
+    ! Set MDI variables
+    !
     is_mdi = .true.
+    !
     IF (is_mdi) THEN
        CALL allocate_nat_arrays()
     END IF
@@ -810,7 +813,7 @@ MODULE MDI_IMPLEMENTATION
   SUBROUTINE set_replica_id()
     USE io_global,        ONLY : ionode, ionode_id
     USE mp_global,        ONLY : intra_image_comm
-    USE mdi_engine,       ONLY : firststep, rid, rid_old, socket
+    USE mdi_engine,       ONLY : rid, rid_old, socket
     USE mdi,              ONLY : MDI_INT, MDI_Recv
     USE mp,               ONLY : mp_bcast
     !
@@ -824,11 +827,11 @@ MODULE MDI_IMPLEMENTATION
     CALL mp_bcast( rid, ionode_id, intra_image_comm )
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Receiving replica", rid, rid_old
-    IF ( rid .NE. rid_old .AND. .NOT. firststep ) THEN
+    IF ( rid .NE. rid_old .AND. .NOT. mdi_first_scf ) THEN
        !
        ! ... If a different replica reset the history
        !
-       IF ( .NOT. firststep) CALL reset_history_for_extrapolation()
+       IF ( .NOT. mdi_first_scf) CALL reset_history_for_extrapolation()
     END IF
     !
     rid_old = rid
@@ -1079,7 +1082,6 @@ MODULE MDI_IMPLEMENTATION
     USE io_global,        ONLY : ionode, ionode_id
     USE mp_global,        ONLY : intra_image_comm
     USE cellmd,           ONLY : omega_old, at_old
-    USE mdi_engine,       ONLY : firststep
     USE cell_base,        ONLY : alat, at, omega
     USE mdi,              ONLY : MDI_DOUBLE, MDI_Recv
     USE mdi_engine,       ONLY : socket
@@ -1093,7 +1095,7 @@ MODULE MDI_IMPLEMENTATION
     !
     IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Reading cell "
     !
-    IF ( .NOT. firststep) THEN
+    IF ( .NOT. mdi_first_scf) THEN
        at_old = at
        omega_old = omega
     END IF
@@ -1111,6 +1113,8 @@ MODULE MDI_IMPLEMENTATION
     !
     cellh  = TRANSPOSE(  cellh )                 ! row-major to column-major
     at = cellh / alat                            ! internally cell is in alat
+    !
+    cell_changed = .true.
     !
   END SUBROUTINE read_cell
   !
@@ -1265,31 +1269,56 @@ MODULE MDI_IMPLEMENTATION
   !
   !
   SUBROUTINE run_scf()
+    USE cell_base,        ONLY : alat, at, omega, bg
     USE extrapolation,    ONLY : update_pot
-    USE control_flags,    ONLY : conv_elec
+    USE control_flags,    ONLY : conv_elec, treinit_gvecs
     USE mdi_engine,       ONLY : scf_current
     !
     IMPLICIT NONE
+    REAL*8, PARAMETER :: gvec_omega_tol=1.0D-1
     !
-    ! ... Initialize the G-Vectors when needed
+    ! ... Recompute cell data
     !
-    !IF ( lgreset ) THEN
-    !   !
-    !   ! ... Reinitialize the G-Vectors if the cell is changed
-    !   !
-    !   CALL initialize_g_vectors()
-    !   !<<<
-    !   !lgreset = .false.
-    !   !>>>
-    !   !
-    !ELSE
+    IF ( cell_changed ) THEN
+       CALL update_cell()
        !
-       ! ... Update only atomic position and potential from the history
-       ! ... if the cell did not change too much
-       !
-       CALL update_pot()
-       CALL hinit1()
-    !END IF
+       ! ... If the cell is changes too much, reinitialize G-Vectors
+       ! ... also extrapolation history must be reset
+       ! ... If firststep, it will also be executed (omega_reset equals 0),
+       ! ... to make sure we initialize G-vectors using positions from I-PI
+       IF ( ((ABS( omega_reset - omega ) / omega) .GT. gvec_omega_tol) &
+                                   .AND. (gvec_omega_tol .GE. 0.d0) ) THEN
+          IF ( ionode ) THEN
+             IF ( mdi_first_scf ) THEN
+                WRITE(*,*) " @ DRIVER MODE: initialize G-vectors "
+             ELSE
+                WRITE(*,*) " @ DRIVER MODE: reinitialize G-vectors "
+             END IF
+          END IF
+          CALL initialize_g_vectors()
+          CALL reset_history_for_extrapolation()
+          !
+       ELSE
+          !
+          ! ... Update only atomic position and potential from the history
+          ! ... if the cell did not change too much
+          !
+          IF (.NOT. mdi_first_scf) THEN
+             IF ( treinit_gvecs ) THEN
+                IF ( cell_changed ) CALL scale_h()
+                CALL reset_gvectors ( )
+             ELSE
+                CALL update_pot()
+                CALL hinit1()
+             END IF
+          END IF
+       END IF
+    ELSE
+       IF (.NOT. mdi_first_scf ) THEN
+           CALL update_pot()
+           CALL hinit1()
+       ENDIF
+    END IF
     !
     ! ... Run an scf calculation
     !
@@ -1298,7 +1327,12 @@ MODULE MDI_IMPLEMENTATION
        CALL punch( 'all' )
        CALL stop_run( conv_elec )
     ENDIF
+    !
+    ! Reset SCF-related flags
+    !
+    mdi_first_scf = .false.
     scf_current = .true.
+    cell_changed = .false.
     !
   END SUBROUTINE run_scf
   !
@@ -1427,7 +1461,7 @@ MODULE MDI_IMPLEMENTATION
     CALL mp_bcast( omega_old, ionode_id, intra_image_comm )
     CALL mp_bcast( bg,        ionode_id, intra_image_comm )
     !
-    !omega_reset = omega
+    omega_reset = omega
     !<<<
     !
     !lgreset = .false.
