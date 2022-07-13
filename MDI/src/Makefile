@@ -28,7 +28,6 @@ libqemdi.so: libqemdi.o
         ../../LAXlib/libqela.a \
         ../../dft-d3/libdftd3qe.a \
         ../../KS_Solvers/libks_solvers.a \
-        ../../clib/clib.a \
         ../../FoX/lib/libFoX_common.a \
         ../../FoX/lib/libFoX_dom.a \
         ../../FoX/lib/libFoX_fsys.a \
@@ -39,6 +38,9 @@ libqemdi.so: libqemdi.o
         ../../FoX/lib/libFoX_wxml.a \
         ../../Modules/libqemod.a \
         ../../PW/src/libpw.a \
+        ../../MBD/libmbd.a \
+        ../../upflib/libupf.a \
+        ../../XClib/xc_lib.a \
         -Wl,--no-whole-archive \
         -L../build/mdi_build-prefix/src/mdi_build-build/MDI_Library -lmdi \
         -Wl,-rpath,../build/mdi_build-prefix/src/mdi_build-build/MDI_Library \

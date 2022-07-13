@@ -2,7 +2,8 @@ MODULE MDI_IMPLEMENTATION
   USE kinds,            ONLY : DP
   USE io_global,        ONLY : ionode, ionode_id, stdout
   USE mp_world,         ONLY : world_comm
-  USE mp_global,        ONLY : me_pool, intra_pool_comm, mp_bcast, mp_sum
+  USE mp,               ONLY : mp_bcast, mp_sum
+  USE mp_pools,         ONLY : intra_pool_comm, me_pool
   USE mdi,              ONLY : MDI_Init, MDI_Send, MDI_INT, MDI_CHAR, MDI_NAME_LENGTH, &
        MDI_Accept_communicator, MDI_Recv_command, MDI_Recv, &
        MDI_Set_execute_command_func, MDI_MPI_get_world_comm, MDI_DOUBLE, MDI_BYTE, &
@@ -154,12 +155,12 @@ MODULE MDI_IMPLEMENTATION
     USE ISO_C_BINDING
     !
     USE io_global,        ONLY : stdout, ionode, ionode_id
-    USE parameters,       ONLY : ntypx, npk, lmaxx
+    USE parameters,       ONLY : ntypx, npk
     USE check_stop,       ONLY : check_stop_init
     USE mp_global,        ONLY : mp_bcast, mp_global_end, intra_image_comm
-    USE control_flags,    ONLY : gamma_only, conv_elec, istep, ethr, lscf, lmd
+    USE control_flags,    ONLY : gamma_only, conv_elec, istep, ethr, lscf, lmd, &
+                                 lforce => tprnfor, tstress
     USE cellmd,           ONLY : lmovecell
-    USE force_mod,        ONLY : lforce, lstres
     USE ions_base,        ONLY : tau, nat
     USE cell_base,        ONLY : alat, at, omega, bg
     USE cellmd,           ONLY : omega_old, at_old, calc
@@ -203,7 +204,7 @@ MODULE MDI_IMPLEMENTATION
     !
     lscf      = .true.
     lforce    = .true.
-    lstres    = .true.
+    tstress   = .true.
     lmd       = .true.
     lmovecell = .true.
     firststep = .true.

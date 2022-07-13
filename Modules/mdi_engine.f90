@@ -12,8 +12,8 @@ MODULE mdi_engine
   USE io_global,        ONLY : ionode, ionode_id, stdout
   USE ions_base,        ONLY : nat
   USE kinds,            ONLY : DP
-  USE mp_global,        ONLY : mp_bcast, mp_sum, mp_barrier, intra_pool_comm
-  USE mp_pools,         ONLY : me_pool, nproc_pool
+  USE mp,               ONLY : mp_bcast, mp_sum, mp_barrier
+  USE mp_pools,         ONLY : me_pool, nproc_pool, intra_pool_comm
   USE mp_world,         ONLY : world_comm
   USE mp,               ONLY : mp_gather
   !
