@@ -21,6 +21,61 @@ MODULE MDI_IMPLEMENTATION
 
   CONTAINS
 
+
+  !
+  ! This is a modified version of stop_run from PW/src/stop_run.f90
+  ! It is exactly the same as the original, but without the call to mp_global_end
+  !
+  SUBROUTINE stop_run_mdi( exit_status )
+    !----------------------------------------------------------------------------
+    !! Close all files and synchronize processes before stopping:
+    !
+    !! * exit_status = 0: successfull execution, remove temporary files;
+    !! * exit_status =-1: code stopped by user request;
+    !! * exit_status = 1: convergence not achieved.
+    !
+    !! Do not remove temporary files needed for restart.
+    !
+    USE io_global,          ONLY : ionode
+    USE environment,        ONLY : environment_end
+    USE io_files,           ONLY : iuntmp, seqopn
+    !
+    IMPLICIT NONE
+    !
+    INTEGER, INTENT(IN) :: exit_status
+    LOGICAL             :: exst, opnd, lflag
+    !
+    lflag = ( exit_status == 0 )
+    IF ( lflag ) THEN
+       !
+       ! ... remove files needed only to restart
+       !
+       CALL seqopn( iuntmp, 'restart', 'UNFORMATTED', exst )
+       CLOSE( UNIT = iuntmp, STATUS = 'DELETE' )
+       !
+       IF ( ionode ) THEN
+          CALL seqopn( iuntmp, 'update', 'FORMATTED', exst )
+          CLOSE( UNIT = iuntmp, STATUS = 'DELETE' )
+          CALL seqopn( iuntmp, 'para', 'FORMATTED', exst )
+          CLOSE( UNIT = iuntmp, STATUS = 'DELETE' )
+       ENDIF
+       !
+    ENDIF
+    !
+    CALL close_files( lflag )
+    !
+    CALL print_clock_pw()
+    !
+    CALL clean_pw( .TRUE. )
+    !
+    CALL environment_end( 'PWSCF' )
+    !
+    !CALL mp_global_end()
+    !
+  END SUBROUTINE stop_run_mdi
+
+
+
   FUNCTION MDI_Plugin_init_qemdi(plugin_state) bind ( C, name="MDI_Plugin_init_qemdi" )
     USE ISO_C_binding
     USE environment,       ONLY : environment_start
@@ -142,6 +197,11 @@ MODULE MDI_IMPLEMENTATION
     retval = 0
     CALL mdi_listen( retval )
     WRITE(6,*)'AFTER MDI LISTEN'
+    !
+    ! Clean up, including deallocating arrays
+    !
+    CALL laxlib_end()
+    CALL stop_run_mdi( retval )
     !
     MDI_Plugin_init_qemdi = retval
     !
