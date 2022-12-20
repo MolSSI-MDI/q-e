@@ -9,7 +9,7 @@ MODULE MDI_IMPLEMENTATION
        MDI_Set_execute_command_func, MDI_MPI_get_world_comm, MDI_DOUBLE, MDI_BYTE, &
        MDI_ENGINE, MDI_Get_role, MDI_Register_command, MDI_Register_node, &
        MDI_Register_callback, MDI_COMMAND_LENGTH, MDI_MPI_get_world_comm, &
-       MDI_Plugin_get_argc, MDI_Plugin_get_arg
+       MDI_Plugin_get_argc, MDI_Plugin_get_arg, MDI_Set_plugin_state
   USE mdi_engine,       ONLY : is_mdi, mdi_forces, &
        rid, rid_old, get_mdi_options, socket, mdi_exit_flag
 
@@ -21,26 +21,25 @@ MODULE MDI_IMPLEMENTATION
 
   CONTAINS
 
-  FUNCTION MDI_Plugin_init_qemdi() bind ( C, name="MDI_Plugin_init_qemdi" )
-  !USE mpi,               ONLY : MPI_Comm_rank
-  !USE parallel_include,  ONLY : MPI_Comm_rank, MPI_COMM_WORLD, MPI_Allreduce, MPI_MAX, &
-  !        MPI_IN_PLACE
-  USE ISO_C_binding
-  USE environment,       ONLY : environment_start
-  USE mp_global,         ONLY : mp_startup
-  USE read_input,        ONLY : read_input_file
-  USE command_line_options, ONLY: set_command_line
-  USE input_parameters,  ONLY : prefix
-  USE parallel_include
+  FUNCTION MDI_Plugin_init_qemdi(plugin_state) bind ( C, name="MDI_Plugin_init_qemdi" )
+    USE ISO_C_binding
+    USE environment,       ONLY : environment_start
+    USE mp_global,         ONLY : mp_startup
+    USE read_input,        ONLY : read_input_file
+    USE command_line_options, ONLY: set_command_line
+    USE input_parameters,  ONLY : prefix
+    USE parallel_include
 
-  ! MDI Communicator to the driver
-  INTEGER :: comm
+    TYPE(C_PTR), VALUE :: plugin_state
 
-  ! MPI intra-communicator for this code
-  INTEGER :: world_comm
+    ! MDI Communicator to the driver
+    INTEGER :: comm
 
-  ! Flag to terminate MDI response function
-  LOGICAL :: terminate_flag = .false.
+    ! MPI intra-communicator for this code
+    INTEGER :: world_comm
+
+    ! Flag to terminate MDI response function
+    LOGICAL :: terminate_flag = .false.
 
     INTEGER :: MDI_Plugin_init_qemdi
     INTEGER :: ierr
@@ -58,6 +57,7 @@ MODULE MDI_IMPLEMENTATION
     INTEGER                :: world_rank, world_rank_reduce
     CHARACTER(LEN=80)      :: suffix
 
+    CALL MDI_Set_plugin_state(plugin_state, ierr)
 
     WRITE(6,*)"IN PLUGIN_INIT"
     FLUSH(6)
@@ -100,7 +100,7 @@ MODULE MDI_IMPLEMENTATION
     END IF
 
     ! Call MDI_Init
-    CALL MDI_Init(mdi_options, ierr)
+    !CALL MDI_Init(mdi_options, ierr)
 
     ! Get the MPI intra-communicator over which this plugin will run
     CALL MDI_MPI_get_world_comm(world_comm, ierr);
