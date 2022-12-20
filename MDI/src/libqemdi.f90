@@ -243,7 +243,8 @@ MODULE MDI_IMPLEMENTATION
     END IF
     !
     CALL MDI_Accept_Communicator( socket, ierr )
-    CALL MDI_Set_execute_command_func(mdi_execute_command_func, class_obj, ierr)
+    CALL MDI_Set_execute_command_func(c_funloc(mdi_execute_command_func), &
+        & class_obj, ierr)
     !
     DO WHILE ( .not. mdi_exit_flag )
        !
