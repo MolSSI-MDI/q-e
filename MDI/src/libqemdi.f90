@@ -244,10 +244,9 @@ MODULE MDI_IMPLEMENTATION
     INTEGER, INTENT(OUT) :: exit_status
     !
     ! Local variables
-    INTEGER, PARAMETER :: MSGLEN=12
     REAL*8, PARAMETER :: gvec_omega_tol=1.0D-1
     LOGICAL :: isinit=.false., hasdata=.false., exst
-    CHARACTER*12 :: header
+    CHARACTER(len=:), ALLOCATABLE :: command
     CHARACTER*1024 :: parbuffer
     INTEGER :: ccmd, i, info
     REAL*8 :: sigma(3,3), at_reset(3,3), dist_reset, ang_reset
@@ -261,6 +260,8 @@ MODULE MDI_IMPLEMENTATION
     mdi_execute_command_func => mdi_execute_command
 
     !----------------------------------------------------------------------------
+    !
+    ALLOCATE( character(MDI_COMMAND_LENGTH) :: command )
     !
     lscf      = .true.
     lforce    = .true.
@@ -308,17 +309,20 @@ MODULE MDI_IMPLEMENTATION
     !
     DO WHILE ( .not. mdi_exit_flag )
        !
-       CALL MDI_Recv_Command( header, socket, ierr )
-       CALL mp_bcast( header, ionode_id, intra_image_comm )
+       IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: CALLING RECV COMMAND"
+       CALL MDI_Recv_Command( command, socket, ierr )
+       CALL mp_bcast( command, ionode_id, intra_image_comm )
        !
-       IF ( ionode ) write(*,*) " @ DRIVER MODE: Message from server: ", trim( header )
+       IF ( ionode ) write(*,*) " @ DRIVER MODE: Message from server: ", trim( command )
        !
-       call mdi_execute_command(header, socket, exit_status)
+       call mdi_execute_command(command, socket, exit_status)
        IF ( exit_status .ne. 0 ) THEN
           CALL errore('mdi_listen','execute command failed',1)
        END IF
        !
     END DO
+    !
+    DEALLOCATE( command )
     !
   END SUBROUTINE mdi_listen
 
@@ -954,10 +958,8 @@ MODULE MDI_IMPLEMENTATION
     INTEGER, INTENT(OUT)          :: ierr
 
     ! Local variables
-    INTEGER, PARAMETER :: MSGLEN=12
     REAL*8, PARAMETER :: gvec_omega_tol=1.0D-1
     LOGICAL :: isinit=.false., hasdata=.false., exst
-    CHARACTER*12 :: header
     CHARACTER*1024 :: parbuffer
     INTEGER :: ccmd, i, info
     REAL*8 :: sigma(3,3), at_reset(3,3), dist_reset, ang_reset
@@ -1198,7 +1200,6 @@ MODULE MDI_IMPLEMENTATION
     cellh = TRANSPOSE( cellh )
     !
     cell_mdi(1:9) = RESHAPE( cellh, (/9/))
-    !cell_mdi(10:12) = 0.0_DP
     !
     CALL MDI_Send( cell_mdi, 9, MDI_DOUBLE, socket, ierr)
     !
