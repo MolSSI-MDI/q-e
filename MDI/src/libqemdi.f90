@@ -118,14 +118,12 @@ MODULE MDI_IMPLEMENTATION
     FLUSH(6)
 
     ! Get the command-line options from the driver
-    mdi_options_found = .false.
     CALL MDI_Plugin_get_argc(argc, ierr)
     DO iarg=0, argc-1
        CALL MDI_Plugin_get_arg(iarg, option, ierr)
        IF ( (TRIM(option) .eq. "-mdi") .or. (TRIM(option) .eq. "--mdi") ) THEN
           IF ( argc .gt. (iarg+1) ) THEN
              CALL MDI_Plugin_get_arg(iarg+1, mdi_options, ierr)
-             mdi_options_found = .true.
           ELSE
              WRITE(6,*)'ERROR: argument to -mdi option not provided'
              MDI_Plugin_init_qemdi = 1
@@ -143,11 +141,6 @@ MODULE MDI_IMPLEMENTATION
           END IF
        END IF
     END DO
-    IF ( .not. mdi_options_found ) THEN
-       WRITE(6,*)'ERROR: --mdi option not provided'
-       MDI_Plugin_init_qemdi = 1
-       RETURN
-    END IF
     IF ( .not. input_file_found ) THEN
        WRITE(6,*)'ERROR: --in option not provided'
        MDI_Plugin_init_qemdi = 1
