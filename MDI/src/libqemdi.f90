@@ -1482,9 +1482,12 @@ MODULE MDI_IMPLEMENTATION
     !
     IMPLICIT NONE
     !
-    REAL(DP) :: stress_mdi(9)
+    !REAL(DP) :: stress_mdi(9)
+    REAL*8, ALLOCATABLE :: stress_mdi(:)
     INTEGER :: ierr
     REAL*8 :: sigma(3,3), vir(3,3)
+    !
+    ALLOCATE(stress_mdi(9))
     !
     ! ... Run an SCF calculation
     !
@@ -1494,13 +1497,15 @@ MODULE MDI_IMPLEMENTATION
     !
     ! ... Compute stress
     !
-    CALL stress()
+    CALL stress( sigma )
     !
     vir=TRANSPOSE( sigma ) * omega * 0.5          ! virial in a.u & no omega scal.
     !
     stress_mdi(1:9) = RESHAPE( vir, (/9/))
     !
     CALL MDI_Send( stress_mdi, 9, MDI_DOUBLE, socket, ierr)
+    !
+    DEALLOCATE(stress_mdi)
     !
   END SUBROUTINE send_stress
   !
