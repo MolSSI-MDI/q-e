@@ -9,6 +9,7 @@ PROGRAM QEMDI
   USE read_input,        ONLY : read_input_file
   USE command_line_options, ONLY: set_command_line
   USE io_global, ONLY: stdout
+  USE parallel_include, ONLY : MPI_THREAD_MULTIPLE
 
   IMPLICIT NONE
 
@@ -20,6 +21,10 @@ PROGRAM QEMDI
   CHARACTER(len=1024) :: arg, mdi_options, input_file
   INTEGER             :: nim, npt, npl, nta, nbn, ndg
   INTEGER                :: retval
+#if defined(_OPENMP)
+  INTEGER :: PROVIDED
+#endif
+
 
   WRITE(stdout,*)'HELLO WORLD!'
 
@@ -66,6 +71,12 @@ PROGRAM QEMDI
 !    EXIT 1
   END IF
 
+
+#if defined(_OPENMP)
+   CALL MPI_Init_thread(MPI_THREAD_MULTIPLE, PROVIDED, ierr)
+#else
+   CALL MPI_Init(ierr)
+#endif
 
 
   ! Call MDI_Init
