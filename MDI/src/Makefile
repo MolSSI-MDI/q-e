@@ -24,18 +24,10 @@ libqemdi.so: libqemdi.o
 	$(MPIF90) -shared -o libqemdi.so libqemdi.o \
         -Wl,--whole-archive \
         ../../UtilXlib/libutil.a \
-        ../../FFTXlib/libqefft.a \
+        ../../FFTXlib/src/libqefft.a \
         ../../LAXlib/libqela.a \
         ../../dft-d3/libdftd3qe.a \
         ../../KS_Solvers/libks_solvers.a \
-        ../../FoX/lib/libFoX_common.a \
-        ../../FoX/lib/libFoX_dom.a \
-        ../../FoX/lib/libFoX_fsys.a \
-        ../../FoX/lib/libFoX_sax.a \
-        ../../FoX/lib/libFoX_utils.a \
-        ../../FoX/lib/libFoX_wcml.a \
-        ../../FoX/lib/libFoX_wkml.a \
-        ../../FoX/lib/libFoX_wxml.a \
         ../../Modules/libqemod.a \
         ../../PW/src/libpw.a \
         ../../MBD/libmbd.a \
