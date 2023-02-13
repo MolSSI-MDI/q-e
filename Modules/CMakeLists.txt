@@ -36,6 +36,7 @@ set(src_modules
     kind.f90 
     lmdif.f90
     mdiis.f90 
+    mdi_engine.f90
     mm_dispersion.f90 
     mp_bands.f90 
     mp_exx.f90 
