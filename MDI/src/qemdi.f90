@@ -25,9 +25,6 @@ PROGRAM QEMDI
   INTEGER :: PROVIDED
 #endif
 
-
-  WRITE(stdout,*)'HELLO WORLD!'
-
   ! Get the MDI command-line options
   narg = command_argument_count()
   mdi_options = ' '
@@ -104,24 +101,17 @@ PROGRAM QEMDI
   nbn = 1
   ndg = 1
   !
-  WRITE(stdout,*)'HERE 1'
   CALL set_command_line( nimage=nim, npool=npl, ntg=nta, &
        nband=nbn, ndiag=ndg )
-  WRITE(stdout,*)'HERE 2'
   CALL mp_startup ( my_world_comm=world_comm )
-  WRITE(stdout,*)'HERE 3'
   CALL environment_start ( 'PWSCF' )
-  WRITE(stdout,*)'HERE 4'
   !
   !input_file = '/repo/tests/water/qe.in'
   CALL read_input_file ('PW+iPi', input_file )
-  WRITE(stdout,*)'HERE 5'
-
   !
   ! Start a PW calculation, which will listen for MDI commands
   !
   retval = 0
   CALL mdi_listen( retval )
-  WRITE(stdout,*)'AFTER MDI LISTEN'
 
 END PROGRAM QEMDI
