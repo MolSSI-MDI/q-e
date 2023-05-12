@@ -22,7 +22,7 @@ MODULE wxml
   !
   implicit none
   ! TEMPORARY FIX: THIS DOESN'T SEEM TO BE IMPORTED FROM XMLTOOLS
-  INTEGER, PARAMETER :: DP_XML = selected_real_kind(14,200)
+  !INTEGER, PARAMETER :: DP_XML = selected_real_kind(14,200)
   type :: xmlf_t
      integer :: unit = -1
   end type xmlf_t
