@@ -7,8 +7,8 @@ project(qemdilib)
 # support cross-compilation and ninja-build
 include(ExternalProject)
 ExternalProject_Add(mdi_build
-  URL     "https://github.com/MolSSI-MDI/MDI_Library/archive/v1.4.16.tar.gz"
-  URL_MD5 "407db44e2d79447ab5c1233af1965f65"
+  URL     "https://github.com/MolSSI-MDI/MDI_Library/archive/v1.4.26.tar.gz"
+  URL_MD5 "3124bb85259471e2a53a891f04bf697a"
   CMAKE_ARGS ${CMAKE_REQUEST_PIC}
   -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
   -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
