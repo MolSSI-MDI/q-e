@@ -308,7 +308,7 @@ MODULE MDI_IMPLEMENTATION
        !
        IF ( ionode ) write(*,*) " @ DRIVER MODE: Message from server: ", trim( command )
        !
-       call mdi_execute_command(command, socket, exit_status)
+       exit_status = mdi_execute_command(command, socket, class_obj)
        IF ( exit_status .ne. 0 ) THEN
           CALL errore('mdi_listen','execute command failed',1)
        END IF
@@ -936,19 +936,21 @@ MODULE MDI_IMPLEMENTATION
 
 
 
-  SUBROUTINE mdi_execute_command(command, mdi_comm, ierr)
+  FUNCTION mdi_execute_command(command, mdi_comm, class_obj)
     USE io_global,        ONLY : ionode
     USE scf,              ONLY : rho
     USE lsda_mod,         ONLY : nspin
     USE fft_base,         ONLY : dfftp
     USE mdi_engine,       ONLY : scf_current, socket, mdi_exit_flag
     USE qmmm,             ONLY : qmmm_minimum_image, qmmm_center_molecule
+    USE ISO_C_binding,    ONLY : C_INT, C_PTR
 
     IMPLICIT NONE
 
     CHARACTER(LEN=*), INTENT(IN)  :: command
     INTEGER, INTENT(IN)           :: mdi_comm
-    INTEGER, INTENT(OUT)          :: ierr
+    TYPE(C_PTR)                   :: class_obj
+    INTEGER(KIND=C_INT)           :: mdi_execute_command
 
     ! Local variables
     REAL*8, PARAMETER :: gvec_omega_tol=1.0D-1
@@ -958,9 +960,9 @@ MODULE MDI_IMPLEMENTATION
     REAL*8 :: sigma(3,3), at_reset(3,3), dist_reset, ang_reset
     REAL *8 :: cellih(3,3), vir(3,3), pot
     REAL*8 :: dist_ang(6), dist_ang_reset(6)
-
-    ierr = 0
-
+    !
+    mdi_execute_command = 0
+    !
     SELECT CASE ( trim( command ) )
     CASE( ">RID" )
        CALL set_replica_id()
@@ -1082,10 +1084,10 @@ MODULE MDI_IMPLEMENTATION
        !
     CASE DEFAULT
        IF ( ionode ) WRITE(*,*) " @ DRIVER MODE: Unrecognized command: ",trim(command)
-       ierr = 130
+       mdi_execute_command = 130
     END SELECT
     !
-  END SUBROUTINE MDI_EXECUTE_COMMAND
+  END FUNCTION MDI_EXECUTE_COMMAND
 
 
 
